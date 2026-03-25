@@ -3,11 +3,6 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { markAsRead } from '@/app/actions/letters'
 
-// LEARN: In Next.js 15, dynamic route params are a Promise — you must await them.
-// [id] in the folder name becomes params.id in the component.
-// The page is a Server Component: it runs on the server, fetches the letter,
-// and streams the rendered HTML to the browser. No loading state needed.
-
 function formatLetterDate(dateString: string) {
   return new Date(dateString).toLocaleDateString('en-GB', {
     weekday: 'long',
@@ -31,7 +26,7 @@ export default async function LetterPage({
   const { data: letter } = await supabase
     .from('letters')
     .select(`
-      id, subject, body, sent_at, read_at, from_id, to_id,
+      id, body, sent_at, read_at, from_id, to_id,
       from_profile:profiles!from_id(display_name, email)
     `)
     .eq('id', id)
@@ -39,10 +34,8 @@ export default async function LetterPage({
 
   if (!letter) notFound()
 
-  // Security: only sender or recipient may read this letter
   if (letter.from_id !== user.id && letter.to_id !== user.id) notFound()
 
-  // Mark as read when the recipient opens it
   if (letter.to_id === user.id && !letter.read_at) {
     await markAsRead(id)
   }
@@ -55,33 +48,31 @@ export default async function LetterPage({
 
   return (
     <div className="max-w-lg">
-      {/* Back */}
       <div className="mb-12">
         <Link
           href="/letters"
           className="font-garamond text-ink-faint hover:text-ink-muted italic text-sm transition-colors duration-200"
         >
-          ← all letters
+          ← letters
         </Link>
       </div>
 
-      {/* Letter header */}
-      <div className="mb-8 pb-6 border-b border-border">
-        {letter.subject && (
-          <h1 className="font-garamond text-2xl text-ink mb-4">{letter.subject}</h1>
+      {/* Date + from */}
+      <div className="mb-10">
+        <p className="font-garamond text-ink-faint text-sm italic">
+          {formatLetterDate(letter.sent_at)}
+        </p>
+        {!isFromMe && (
+          <p className="font-garamond text-ink-muted text-sm italic mt-0.5">
+            from {fromName}
+          </p>
         )}
-        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-          <span className="font-garamond text-ink-muted italic text-sm">from {fromName}</span>
-          <span className="font-garamond text-ink-faint text-sm">
-            {formatLetterDate(letter.sent_at)}
-          </span>
-        </div>
       </div>
 
       {/* Letter body */}
       <div className="letter-body font-garamond mb-16">{letter.body}</div>
 
-      {/* Write back — only shown when reading a letter from the other person */}
+      {/* Write back */}
       {!isFromMe && (
         <div className="pt-5 border-t border-border">
           <Link

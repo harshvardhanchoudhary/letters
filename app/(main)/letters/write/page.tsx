@@ -4,24 +4,16 @@ import { useState, useRef, useEffect } from 'react'
 import { sendLetter } from '@/app/actions/letters'
 import Link from 'next/link'
 
-// LEARN: This is a Client Component because it needs interactivity:
-// - auto-growing textarea (needs to measure DOM element height)
-// - live word count
-// - loading state while sending
-// Server Components can't do any of that — they only render HTML once.
-
 function wordCount(text: string) {
   return text.trim().split(/\s+/).filter(Boolean).length
 }
 
 export default function WritePage() {
-  const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  // Auto-grow the textarea as the user types
   useEffect(() => {
     const el = textareaRef.current
     if (!el) return
@@ -37,7 +29,6 @@ export default function WritePage() {
     setError('')
 
     const formData = new FormData()
-    formData.set('subject', subject)
     formData.set('body', body)
 
     const result = await sendLetter(formData)
@@ -46,12 +37,11 @@ export default function WritePage() {
       setError(result.error)
       setSending(false)
     }
-    // On success, sendLetter redirects to /letters — no need to handle here
   }
 
   return (
     <div className="max-w-lg">
-      <div className="mb-10">
+      <div className="mb-12">
         <Link
           href="/letters"
           className="font-garamond text-ink-faint hover:text-ink-muted italic text-sm transition-colors duration-200"
@@ -61,25 +51,13 @@ export default function WritePage() {
       </div>
 
       <form onSubmit={handleSubmit}>
-        {/* Optional subject */}
-        <div className="mb-8">
-          <input
-            type="text"
-            value={subject}
-            onChange={e => setSubject(e.target.value)}
-            placeholder="Subject (optional)"
-            className="w-full bg-transparent font-garamond text-lg text-ink placeholder:text-ink-faint border-b border-border pb-2.5 focus:border-ink-muted transition-colors duration-200"
-          />
-        </div>
-
-        {/* Body */}
         <div className="mb-10">
           <textarea
             ref={textareaRef}
             value={body}
             onChange={e => setBody(e.target.value)}
             placeholder="Begin your letter here…"
-            rows={14}
+            rows={16}
             autoFocus
             className="w-full bg-transparent font-garamond text-ink placeholder:text-ink-faint overflow-hidden"
             style={{ fontSize: '1.0625rem', lineHeight: '1.9' }}
