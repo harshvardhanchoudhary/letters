@@ -70,23 +70,34 @@ async function main() {
     process.exit(1)
   }
 
-  // Show preview
-  console.log('\n' + '─'.repeat(72))
-  emails.forEach((m, i) => {
-    const d = new Date(m.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-    const from = m.from === YOUR_EMAIL ? 'you' : 'Azi'
-    const preview = m.body.substring(0, 55).replace(/\n/g, ' ')
-    console.log(`${String(i + 1).padStart(3)}. [${d}] ${from.padEnd(3)} — ${preview}`)
-  })
-  console.log('─'.repeat(72))
-  console.log(`\nTotal: ${emails.length} letters\n`)
+  console.log(`\nFound ${emails.length} letters. Review each one:\n`)
 
   const rl2 = readline.createInterface({ input: process.stdin, output: process.stdout })
-  const answer = await ask(rl2, 'Enter numbers to SKIP (comma-separated), or press Enter to import all: ')
-  rl2.close()
+  const toImport = []
 
-  const skipNums = new Set(answer.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)))
-  const toImport = emails.filter((_, i) => !skipNums.has(i + 1))
+  for (let i = 0; i < emails.length; i++) {
+    const m = emails[i]
+    const d = new Date(m.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    const from = m.from === YOUR_EMAIL ? 'you' : 'her'
+    const bodyPreview = m.body.substring(0, 200).replace(/\n+/g, ' ').trim()
+
+    console.log('\n' + '─'.repeat(72))
+    console.log(`[${i + 1}/${emails.length}]  ${d}  •  from: ${from}`)
+    if (m.subject) console.log(`Subject: ${m.subject}`)
+    console.log(`\n${bodyPreview}${m.body.length > 200 ? '...' : ''}`)
+    console.log('')
+
+    let answer = ''
+    while (!['y', 'n', 's'].includes(answer)) {
+      answer = (await ask(rl2, 'Import this letter? [y = yes / n = skip / s = stop & import what we have so far]: ')).trim().toLowerCase()
+    }
+
+    if (answer === 'y') toImport.push(m)
+    if (answer === 's') break
+  }
+
+  rl2.close()
+  console.log('')
   console.log(`\nImporting ${toImport.length} letters into Supabase...`)
 
   const { createClient } = require('@supabase/supabase-js')
