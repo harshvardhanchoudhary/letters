@@ -103,3 +103,75 @@ create policy "Recipients can mark letters as read"
 
 -- Letters are permanent — no deleting
 -- (No DELETE policy = nobody can delete, ever)
+
+
+-- ── Postcards ─────────────────────────────────────────────────────────────────
+-- Photo messages. image_url points to Supabase Storage (timeline-photos bucket).
+
+create table if not exists public.postcards (
+  id         uuid        default gen_random_uuid() primary key,
+  from_id    uuid        references public.profiles(id) on delete cascade not null,
+  to_id      uuid        references public.profiles(id) on delete cascade not null,
+  image_url  text        not null,
+  caption    text,
+  sent_at    timestamptz default now() not null,
+  read_at    timestamptz,                          -- null = unread
+  created_at timestamptz default now() not null
+);
+
+alter table public.postcards enable row level security;
+
+create policy "Postcards viewable by sender and recipient"
+  on public.postcards for select
+  to authenticated
+  using (auth.uid() = from_id or auth.uid() = to_id);
+
+create policy "Users can send postcards"
+  on public.postcards for insert
+  to authenticated
+  with check (auth.uid() = from_id);
+
+create policy "Recipients can mark postcards as read"
+  on public.postcards for update
+  to authenticated
+  using (auth.uid() = to_id)
+  with check (auth.uid() = to_id);
+
+-- Storage policy: authenticated users can upload to timeline-photos
+-- (Run these in Storage → Policies if they don't apply automatically)
+-- insert policy: authenticated users can upload
+-- select policy: authenticated users can view
+
+
+-- ── Moments ───────────────────────────────────────────────────────────────────
+-- Hand-added timeline entries: milestones, memories, significant dates.
+
+create table if not exists public.moments (
+  id           uuid        default gen_random_uuid() primary key,
+  created_by   uuid        references public.profiles(id) on delete cascade not null,
+  title        text        not null,
+  note         text,
+  occurred_at  timestamptz not null,              -- the actual date of the moment
+  created_at   timestamptz default now() not null
+);
+
+alter table public.moments enable row level security;
+
+-- Both users can read all moments
+create policy "Moments viewable by authenticated users"
+  on public.moments for select
+  to authenticated
+  using (true);
+
+-- Anyone can add a moment
+create policy "Authenticated users can add moments"
+  on public.moments for insert
+  to authenticated
+  with check (auth.uid() = created_by);
+
+-- Only the creator can edit their moment
+create policy "Creators can update their moments"
+  on public.moments for update
+  to authenticated
+  using (auth.uid() = created_by)
+  with check (auth.uid() = created_by);

@@ -23,3 +23,32 @@ export type Letter = {
   from_profile?: Pick<Profile, 'display_name' | 'email'>
   to_profile?: Pick<Profile, 'display_name' | 'email'>
 }
+
+export type Postcard = {
+  id: string
+  from_id: string
+  to_id: string
+  image_url: string
+  caption: string | null
+  sent_at: string
+  read_at: string | null
+  created_at: string
+  from_profile?: Pick<Profile, 'display_name' | 'email'>
+  to_profile?: Pick<Profile, 'display_name' | 'email'>
+}
+
+export type Moment = {
+  id: string
+  created_by: string
+  title: string
+  note: string | null
+  occurred_at: string
+  created_at: string
+  creator_profile?: Pick<Profile, 'display_name' | 'email'>
+}
+
+// Union type for timeline entries
+export type TimelineEntry =
+  | ({ kind: 'letter' } & Letter)
+  | ({ kind: 'postcard' } & Postcard)
+  | ({ kind: 'moment' } & Moment)

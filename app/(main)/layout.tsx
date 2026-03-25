@@ -21,12 +21,20 @@ export default async function MainLayout({ children }: { children: React.ReactNo
 
   const displayName = profile?.display_name || profile?.email?.split('@')[0] || 'you'
 
-  // Unread count — drives the dot indicator on the nav
-  const { count: unreadCount } = await supabase
-    .from('letters')
-    .select('*', { count: 'exact', head: true })
-    .eq('to_id', user.id)
-    .is('read_at', null)
+  // Unread counts — drive dot indicators on the nav
+  const [{ count: unreadLetters }, { count: unreadPostcards }] = await Promise.all([
+    supabase
+      .from('letters')
+      .select('*', { count: 'exact', head: true })
+      .eq('to_id', user.id)
+      .is('read_at', null),
+    supabase
+      .from('postcards')
+      .select('*', { count: 'exact', head: true })
+      .eq('to_id', user.id)
+      .is('read_at', null),
+  ])
+  const unreadCount = unreadLetters  // keep for letters nav dot
 
   return (
     <div className="min-h-screen bg-paper flex">
@@ -60,6 +68,25 @@ export default async function MainLayout({ children }: { children: React.ReactNo
               <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
             )}
           </div>
+
+          <div className="flex items-center gap-2 py-1.5">
+            <Link
+              href="/postcards"
+              className="font-garamond text-base text-ink-muted hover:text-ink transition-colors duration-200"
+            >
+              postcards
+            </Link>
+            {(unreadPostcards ?? 0) > 0 && (
+              <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+            )}
+          </div>
+
+          <Link
+            href="/timeline"
+            className="block font-garamond text-base text-ink-muted hover:text-ink transition-colors duration-200 py-1.5"
+          >
+            timeline
+          </Link>
         </nav>
 
         <div className="mt-auto pt-5 border-t border-border">
