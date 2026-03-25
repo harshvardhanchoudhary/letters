@@ -48,11 +48,10 @@ export default async function LetterPage({
   }
 
   const isFromMe = letter.from_id === user.id
+  const fromProfile = Array.isArray(letter.from_profile) ? letter.from_profile[0] : letter.from_profile
   const fromName = isFromMe
     ? 'you'
-    : (letter.from_profile as any)?.display_name ||
-      (letter.from_profile as any)?.email?.split('@')[0] ||
-      '—'
+    : fromProfile?.display_name || fromProfile?.email?.split('@')[0] || '—'
 
   return (
     <div className="max-w-lg">

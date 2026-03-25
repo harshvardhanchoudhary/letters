@@ -52,14 +52,13 @@ export default async function LettersPage() {
       )}
 
       <div>
-        {letters?.map((letter: any) => {
+        {letters?.map((letter) => {
           const isFromMe = letter.from_id === user.id
           const isUnread = !isFromMe && !letter.read_at
+          const fromProfile = Array.isArray(letter.from_profile) ? letter.from_profile[0] : letter.from_profile
           const fromName = isFromMe
             ? 'you'
-            : letter.from_profile?.display_name ||
-              letter.from_profile?.email?.split('@')[0] ||
-              '—'
+            : fromProfile?.display_name || fromProfile?.email?.split('@')[0] || '—'
           const preview =
             letter.subject ||
             letter.body.split('\n')[0].substring(0, 72) +
