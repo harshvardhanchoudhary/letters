@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* LEARN: CSS custom properties (variables) defined here are the single
+   source of truth for the colour palette. Tailwind reads these via
+   tailwind.config.ts. If we ever want a dark mode or seasonal theme,
+   we change values here and the whole app updates. */
+
+:root {
+  --paper: #FAF8F5;
+  --paper-dark: #F0EBE3;
+  --paper-darker: #E8DDD0;
+  --ink: #1C1410;
+  --ink-muted: #6B5B4E;
+  --ink-faint: #B09880;
+  --accent: #7C5C4C;
+  --accent-light: #A07060;
+  --border: #E8E0D5;
+  --border-dark: #D8CCBE;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Text selection — uses accent colour to feel intentional */
+::selection {
+  background-color: var(--accent);
+  color: var(--paper);
+}
+
+/* Minimal, warm scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: var(--paper-dark);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-dark);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-faint);
+}
+
+/* Inputs and textareas: no outline, we style focus states manually */
+textarea,
+input {
+  outline: none;
+}
+
+textarea {
+  resize: none;
+}
+
+/* Letter reading typography */
+.letter-body {
+  font-size: 1.0625rem;
+  line-height: 1.9;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
