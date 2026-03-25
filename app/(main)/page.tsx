@@ -1,7 +1,17 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import type { Letter, Profile } from '@/types/database'
+import type { Profile } from '@/types/database'
+
+function formatDate(dateString: string) {
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
+  if (diffDays === 0) return 'today'
+  if (diffDays === 1) return 'yesterday'
+  if (diffDays < 7) return `${diffDays} days ago`
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+}
 
 function getGreeting() {
   const hour = new Date().getHours()
@@ -10,135 +20,150 @@ function getGreeting() {
   return 'Good evening.'
 }
 
-function formatShortDate(dateString: string) {
-  const date = new Date(dateString)
-  const now = new Date()
-  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
-
-  if (diffDays === 0) return 'today'
-  if (diffDays === 1) return 'yesterday'
-  if (diffDays < 7) return `${diffDays} days ago`
-
-  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
-}
-
 export default async function HomePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Partner profile
   const { data: partner } = await supabase
     .from('profiles')
     .select('id, display_name, email')
     .neq('id', user.id)
     .single<Profile>()
 
-  const partnerName = partner?.display_name || partner?.email?.split('@')[0] || 'someone special'
+  const partnerName = partner?.display_name || partner?.email?.split('@')[0] || 'her'
 
-  // Unread letters sent to me
+  // Unread letters — most recent first
   const { data: unread } = await supabase
     .from('letters')
-    .select('id, subject, body, sent_at')
+    .select('id, body, sent_at')
     .eq('to_id', user.id)
     .is('read_at', null)
     .order('sent_at', { ascending: false })
 
-  // Recent letters (both directions)
-  const { data: recent } = await supabase
+  // Last letter exchanged (for quiet state)
+  const { data: lastLetters } = await supabase
     .from('letters')
-    .select('id, subject, body, sent_at, read_at, from_id, to_id')
+    .select('id, body, sent_at, from_id')
     .or(`from_id.eq.${user.id},to_id.eq.${user.id}`)
     .order('sent_at', { ascending: false })
-    .limit(4)
+    .limit(1)
+
+  const lastLetter = lastLetters?.[0]
+
+  // Unread postcard count
+  const { count: unreadPostcards } = await supabase
+    .from('postcards')
+    .select('*', { count: 'exact', head: true })
+    .eq('to_id', user.id)
+    .is('read_at', null)
+
+  const hasUnreadLetter = unread && unread.length > 0
+  const firstUnread = hasUnreadLetter ? unread[0] : null
+
+  // Body preview — first meaningful paragraph, up to 320 chars
+  const bodyPreview = firstUnread
+    ? (() => {
+        const first = firstUnread.body.split('\n').find((l: string) => l.trim()) || ''
+        return first.length > 320 ? first.substring(0, 320) + '…' : first
+      })()
+    : null
 
   return (
     <div className="max-w-lg">
-      <p className="font-garamond text-2xl text-ink mb-10">{getGreeting()}</p>
 
-      {/* Unread notice */}
-      {unread && unread.length > 0 && (
-        <div className="mb-10 px-5 py-4 border border-border-dark bg-paper-dark rounded-sm">
-          <p className="font-garamond text-ink-faint text-xs uppercase tracking-widest mb-2">
-            waiting for you
+      {/* State 1: Unread letter — her words fill the page */}
+      {hasUnreadLetter && firstUnread && bodyPreview && (
+        <div>
+          <p className="font-garamond text-ink-faint text-sm italic mb-8">
+            {partnerName} wrote · {formatDate(firstUnread.sent_at)}
+            {unread.length > 1 && (
+              <span className="ml-2 text-accent">+{unread.length - 1} more</span>
+            )}
           </p>
-          {unread.length === 1 ? (
-            <Link
-              href={`/letters/${unread[0].id}`}
-              className="font-garamond text-base text-ink hover:text-accent transition-colors duration-200"
+
+          <Link href={`/letters/${firstUnread.id}`} className="block group">
+            <p
+              className="font-garamond text-ink group-hover:text-accent transition-colors duration-300"
+              style={{ fontSize: '1.25rem', lineHeight: '2', letterSpacing: '0.01em' }}
             >
-              There is a letter from {partnerName}. →
-            </Link>
-          ) : (
+              {bodyPreview}
+            </p>
+            <p className="font-garamond text-ink-faint italic text-sm mt-6 group-hover:text-ink-muted transition-colors duration-200">
+              continue reading →
+            </p>
+          </Link>
+
+          <div className="mt-14 pt-6 border-t border-border flex items-center justify-between">
             <Link
-              href="/letters"
-              className="font-garamond text-base text-ink hover:text-accent transition-colors duration-200"
+              href="/letters/write"
+              className="font-garamond italic text-ink-muted hover:text-ink text-sm transition-colors duration-200"
             >
-              There are {unread.length} letters from {partnerName}. →
+              Write back →
             </Link>
-          )}
+            {(unreadPostcards ?? 0) > 0 && (
+              <Link
+                href="/postcards"
+                className="font-garamond italic text-ink-muted hover:text-ink text-sm transition-colors duration-200"
+              >
+                {unreadPostcards} postcard{(unreadPostcards ?? 0) > 1 ? 's' : ''} waiting →
+              </Link>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Quiet state — no unread */}
-      {(!unread || unread.length === 0) && (
-        <p className="font-garamond text-ink-muted italic mb-10">
-          {!partner
-            ? 'No one else is here yet.'
-            : !recent || recent.length === 0
-            ? `${partnerName} is here. Write the first letter.`
-            : 'No new letters.'}
-        </p>
-      )}
-
-      <div className="mb-14">
-        <Link
-          href="/letters/write"
-          className="font-garamond text-base italic text-ink-muted hover:text-ink transition-colors duration-200"
-        >
-          Write a letter →
-        </Link>
-      </div>
-
-      {/* Recent letters */}
-      {recent && recent.length > 0 && (
+      {/* State 2: No unread — quiet, warm */}
+      {!hasUnreadLetter && (
         <div>
-          <p className="font-garamond text-ink-faint text-xs uppercase tracking-widest mb-5">
-            Recent
-          </p>
-          <div className="space-y-1">
-            {(recent as Letter[]).map(letter => {
-              const isFromMe = letter.from_id === user.id
-              const isUnread = !isFromMe && !letter.read_at
-              const preview =
-                letter.subject ||
-                letter.body.split('\n')[0].substring(0, 65) +
-                  (letter.body.length > 65 ? '…' : '')
+          <p className="font-garamond text-2xl text-ink mb-10">{getGreeting()}</p>
 
-              return (
-                <Link
-                  key={letter.id}
-                  href={`/letters/${letter.id}`}
-                  className="flex items-baseline justify-between gap-4 py-3 border-b border-border group"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    {isUnread && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
-                    )}
-                    <span
-                      className={`font-garamond text-base truncate transition-colors duration-200 group-hover:text-accent ${
-                        isUnread ? 'text-ink' : 'text-ink-muted'
-                      }`}
-                    >
-                      {preview}
-                    </span>
-                  </div>
-                  <span className="font-garamond text-ink-faint text-sm italic shrink-0">
-                    {formatShortDate(letter.sent_at)}
-                  </span>
-                </Link>
-              )
-            })}
+          {!partner && (
+            <p className="font-garamond text-ink-muted italic mb-8">
+              No one else is here yet.
+            </p>
+          )}
+
+          {partner && !lastLetter && (
+            <p className="font-garamond text-ink-muted italic mb-8">
+              {partnerName} is here. Write the first letter.
+            </p>
+          )}
+
+          {partner && lastLetter && (
+            <div className="mb-10">
+              <p className="font-garamond text-ink-faint text-sm italic mb-6">
+                No new letters. The last one was {formatDate(lastLetter.sent_at)}.
+              </p>
+
+              {/* Quiet preview of last letter */}
+              <Link href={`/letters/${lastLetter.id}`} className="block group">
+                <p className="font-garamond text-ink-muted italic leading-relaxed group-hover:text-ink transition-colors duration-200"
+                  style={{ fontSize: '1.0625rem', lineHeight: '1.9' }}>
+                  {(() => {
+                    const first = lastLetter.body.split('\n').find((l: string) => l.trim()) || ''
+                    return first.length > 180 ? first.substring(0, 180) + '…' : first
+                  })()}
+                </p>
+              </Link>
+            </div>
+          )}
+
+          <div className="mt-10 flex items-center gap-8">
+            <Link
+              href="/letters/write"
+              className="font-garamond italic text-ink-muted hover:text-ink text-base transition-colors duration-200"
+            >
+              Write a letter →
+            </Link>
+            {(unreadPostcards ?? 0) > 0 && (
+              <Link
+                href="/postcards"
+                className="font-garamond italic text-ink-muted hover:text-ink text-sm transition-colors duration-200"
+              >
+                {unreadPostcards} postcard{(unreadPostcards ?? 0) > 1 ? 's' : ''} waiting →
+              </Link>
+            )}
           </div>
         </div>
       )}
