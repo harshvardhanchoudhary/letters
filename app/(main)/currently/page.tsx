@@ -48,9 +48,9 @@ export default function CurrentlyPage() {
         </Link>
       </div>
 
-      <h1 className="font-garamond text-2xl text-ink mb-2">What are you into?</h1>
+      <h1 className="font-garamond text-2xl text-ink mb-2">What you&apos;re sharing</h1>
       <p className="font-garamond text-ink-faint italic text-sm mb-10">
-        This shows on the home page so she can see what&apos;s on your mind.
+        This is what she sees when she opens the app. Keep it honest.
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-7">
