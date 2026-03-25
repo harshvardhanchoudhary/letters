@@ -175,3 +175,31 @@ create policy "Creators can update their moments"
   to authenticated
   using (auth.uid() = created_by)
   with check (auth.uid() = created_by);
+
+
+-- ── Currently ─────────────────────────────────────────────────────────────────
+-- What each person is into right now. Shows on the home page.
+-- Each person can have multiple items (reading, listening to, thinking about…).
+
+create table if not exists public.currently (
+  user_id    uuid  references public.profiles(id) on delete cascade not null,
+  label      text  not null,   -- e.g. "reading", "listening to", "thinking about"
+  value      text  not null,   -- e.g. "Norwegian Wood"
+  updated_at timestamptz default now() not null,
+  primary key (user_id, label)
+);
+
+alter table public.currently enable row level security;
+
+-- Both users can read each other's currently
+create policy "Currently viewable by authenticated users"
+  on public.currently for select
+  to authenticated
+  using (true);
+
+-- Users can only write their own
+create policy "Users can manage their own currently"
+  on public.currently for all
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);

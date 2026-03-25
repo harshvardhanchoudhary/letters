@@ -19,7 +19,14 @@ export default async function MainLayout({ children }: { children: React.ReactNo
     .eq('id', user.id)
     .single()
 
-  const displayName = profile?.display_name || profile?.email?.split('@')[0] || 'you'
+  const { data: partner } = await supabase
+    .from('profiles')
+    .select('display_name, email')
+    .neq('id', user.id)
+    .single()
+
+  const myName = profile?.display_name || profile?.email?.split('@')[0] || 'you'
+  const partnerName = partner?.display_name || partner?.email?.split('@')[0] || '—'
 
   // Unread counts — drive dot indicators on the nav
   const [{ count: unreadLetters }, { count: unreadPostcards }] = await Promise.all([
@@ -41,11 +48,13 @@ export default async function MainLayout({ children }: { children: React.ReactNo
       {/* Sidebar */}
       <aside className="w-48 shrink-0 border-r border-border min-h-screen flex flex-col px-5 py-8">
         <div className="mb-10">
-          <Link
-            href="/"
-            className="font-garamond text-2xl italic text-ink hover:text-accent transition-colors duration-200"
-          >
-            letters
+          <Link href="/" className="block group">
+            <p className="font-garamond text-xs text-ink-faint italic tracking-wide mb-0.5">
+              {myName} & {partnerName}
+            </p>
+            <p className="font-garamond text-2xl italic text-ink group-hover:text-accent transition-colors duration-200">
+              letters
+            </p>
           </Link>
         </div>
 
@@ -91,7 +100,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
 
         <div className="mt-auto pt-5 border-t border-border">
           <p className="font-garamond text-ink-faint text-sm italic mb-2 truncate">
-            {displayName}
+            {myName}
           </p>
           <form action={signOut}>
             <button

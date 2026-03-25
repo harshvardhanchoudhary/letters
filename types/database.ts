@@ -47,6 +47,13 @@ export type Moment = {
   creator_profile?: Pick<Profile, 'display_name' | 'email'>
 }
 
+export type Currently = {
+  user_id: string
+  label: string
+  value: string
+  updated_at: string
+}
+
 // Union type for timeline entries
 export type TimelineEntry =
   | ({ kind: 'letter' } & Letter)
