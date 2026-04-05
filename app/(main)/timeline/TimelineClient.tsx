@@ -14,6 +14,10 @@ function formatShortDate(dateString: string) {
   return new Date(dateString).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
+function dayKey(dateString: string) {
+  return new Date(dateString).toISOString().slice(0, 10)
+}
+
 function entryDate(e: TimelineEntry): string {
   return e.kind === 'moment' ? e.occurred_at : e.sent_at
 }
@@ -35,14 +39,12 @@ export default function TimelineClient({ entries, userId }: Props) {
 
   const closeModal = useCallback(() => setModalOpen(false), [])
 
-  // Close on Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') closeModal() }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [closeModal])
 
-  // Scroll selected dot into view
   useEffect(() => {
     if (selected === null) return
     const dot = dotRefs.current[selected]
@@ -65,6 +67,19 @@ export default function TimelineClient({ entries, userId }: Props) {
   const selectedEntry = selected !== null ? entries[selected] : null
   const DOT_SPACING = 52
 
+  const photoDays = entries
+    .filter((entry): entry is TimelineEntry & { kind: 'postcard' } => entry.kind === 'postcard')
+    .reduce<Record<string, (TimelineEntry & { kind: 'postcard' })[]>>((acc, entry) => {
+      const key = dayKey(entry.sent_at)
+      acc[key] = acc[key] || []
+      acc[key].push(entry)
+      return acc
+    }, {})
+
+  const photoDayCards = Object.entries(photoDays)
+    .map(([key, cards]) => ({ key, cards }))
+    .sort((a, b) => new Date(b.key).getTime() - new Date(a.key).getTime())
+
   function handleDotClick(i: number) {
     setSelected(i)
     setModalOpen(true)
@@ -72,18 +87,36 @@ export default function TimelineClient({ entries, userId }: Props) {
 
   return (
     <>
-      {/* Track */}
+      {photoDayCards.length > 0 && (
+        <section className="mb-10">
+          <p className="font-garamond text-xs italic text-ink-faint mb-3">Photo days</p>
+          <div className="space-y-5">
+            {photoDayCards.map(({ key, cards }) => {
+              const hero = cards[0]
+              return (
+                <article key={key} className="rounded-lg border border-border p-3">
+                  <p className="mb-3 font-garamond text-sm italic text-ink-faint">{formatDate(key)}</p>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={hero.image_url} alt={hero.caption || 'date photo'} className="h-60 w-full rounded-md object-cover" />
+                  {hero.caption && <p className="mt-3 font-garamond text-sm italic text-ink-muted">{hero.caption}</p>}
+                  {cards.length > 1 && (
+                    <p className="mt-2 font-garamond text-xs italic text-ink-faint">+ {cards.length - 1} more photos that day</p>
+                  )}
+                </article>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
       <div
         ref={trackRef}
-        className="overflow-x-auto -mx-10 px-10"
+        className="overflow-x-auto px-1"
         style={{ scrollbarWidth: 'none' }}
       >
         <div className="relative" style={{ width: `${entries.length * DOT_SPACING + 80}px`, height: '88px' }}>
-
-          {/* Line */}
           <div className="absolute left-0 right-0 h-px bg-border" style={{ top: '44px' }} />
 
-          {/* Year labels */}
           {entries.map((entry, i) => {
             const year = getYear(entryDate(entry))
             const prevYear = i > 0 ? getYear(entryDate(entries[i - 1])) : null
@@ -91,7 +124,7 @@ export default function TimelineClient({ entries, userId }: Props) {
             return (
               <span
                 key={`year-${i}`}
-                className="absolute font-garamond text-xs text-ink-faint italic select-none"
+                className="absolute select-none font-garamond text-xs italic text-ink-faint"
                 style={{ left: `${i * DOT_SPACING + 40}px`, top: '6px', transform: 'translateX(-50%)' }}
               >
                 {year}
@@ -99,7 +132,6 @@ export default function TimelineClient({ entries, userId }: Props) {
             )
           })}
 
-          {/* Dots */}
           {entries.map((entry, i) => {
             const isSelected = selected === i && modalOpen
             const isMoment = entry.kind === 'moment'
@@ -108,78 +140,59 @@ export default function TimelineClient({ entries, userId }: Props) {
             return (
               <button
                 key={`${entry.kind}-${entry.id}`}
-                ref={el => { dotRefs.current[i] = el }}
+                ref={(el) => { dotRefs.current[i] = el }}
                 onClick={() => handleDotClick(i)}
                 className="absolute group cursor-pointer"
                 style={{ left: `${i * DOT_SPACING + 40}px`, top: '36px', transform: 'translateX(-50%)' }}
                 title={`${formatShortDate(entryDate(entry))} — ${entry.kind}`}
               >
-                <div className={`
-                  transition-all duration-200
-                  ${isMoment
-                    ? `w-3.5 h-3.5 rotate-45 border-2 ${isSelected ? 'bg-accent border-accent scale-125' : 'bg-paper border-accent/60 group-hover:border-accent group-hover:scale-110'}`
+                <div className={`transition-all duration-200 ${
+                  isMoment
+                    ? `h-3.5 w-3.5 rotate-45 border-2 ${isSelected ? 'scale-125 border-accent bg-accent' : 'border-accent/60 bg-paper group-hover:scale-110 group-hover:border-accent'}`
                     : isPostcard
-                      ? `w-3 h-3 rounded-sm ${isSelected ? 'bg-accent scale-125' : 'bg-border-dark group-hover:bg-ink-faint group-hover:scale-110'}`
-                      : `w-2.5 h-2.5 rounded-full border-2 ${isSelected ? 'bg-accent border-accent scale-125' : 'bg-paper border-border-dark group-hover:border-ink-muted group-hover:scale-110'}`
-                  }
-                `} />
+                      ? `h-3 w-3 rounded-sm ${isSelected ? 'scale-125 bg-accent' : 'bg-border-dark group-hover:scale-110 group-hover:bg-ink-faint'}`
+                      : `h-2.5 w-2.5 rounded-full border-2 ${isSelected ? 'scale-125 border-accent bg-accent' : 'border-border-dark bg-paper group-hover:scale-110 group-hover:border-ink-muted'}`
+                }`} />
               </button>
             )
           })}
         </div>
       </div>
 
-      {/* Legend */}
-      <div className="flex items-center gap-6 mt-4 pt-5 border-t border-border">
+      <div className="mt-4 flex items-center gap-6 border-t border-border pt-5">
         <div className="flex items-center gap-2">
-          <div className="w-2.5 h-2.5 rounded-full border-2 border-border-dark bg-paper flex-shrink-0" />
-          <span className="font-garamond text-ink-faint text-xs italic">letter</span>
+          <div className="h-2.5 w-2.5 flex-shrink-0 rounded-full border-2 border-border-dark bg-paper" />
+          <span className="font-garamond text-xs italic text-ink-faint">letter</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-sm bg-border-dark flex-shrink-0" />
-          <span className="font-garamond text-ink-faint text-xs italic">postcard</span>
+          <div className="h-3 w-3 flex-shrink-0 rounded-sm bg-border-dark" />
+          <span className="font-garamond text-xs italic text-ink-faint">postcard/photo</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rotate-45 border-2 border-accent/60 bg-paper flex-shrink-0" />
-          <span className="font-garamond text-ink-faint text-xs italic">moment</span>
+          <div className="h-3 w-3 flex-shrink-0 rotate-45 border-2 border-accent/60 bg-paper" />
+          <span className="font-garamond text-xs italic text-ink-faint">moment</span>
         </div>
-        <span className="font-garamond text-ink-faint text-xs italic ml-auto">
-          {entries.length} {entries.length === 1 ? 'entry' : 'entries'} · click any dot
-        </span>
       </div>
 
-      {/* Modal */}
       {modalOpen && selectedEntry && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-6"
-          onClick={closeModal}
-        >
-          {/* Backdrop */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6" onClick={closeModal}>
           <div className="absolute inset-0 bg-ink/30" />
 
-          {/* Card */}
           <div
-            className="relative bg-paper max-w-lg w-full max-h-[80vh] overflow-y-auto shadow-xl"
+            className="relative max-h-[80vh] w-full max-w-lg overflow-y-auto bg-paper shadow-xl"
             style={{ padding: '2.5rem' }}
-            onClick={e => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           >
-            {/* Close */}
             <button
               onClick={closeModal}
-              className="absolute top-5 right-5 font-garamond text-ink-faint hover:text-ink text-sm italic transition-colors duration-200"
+              className="absolute right-5 top-5 font-garamond text-sm italic text-ink-faint hover:text-ink transition-colors duration-200"
             >
               close
             </button>
 
-            {selectedEntry.kind === 'letter' && (
-              <LetterModal entry={selectedEntry} userId={userId} onClose={closeModal} />
-            )}
-            {selectedEntry.kind === 'postcard' && (
-              <PostcardModal entry={selectedEntry} userId={userId} />
-            )}
-            {selectedEntry.kind === 'moment' && (
-              <MomentModal entry={selectedEntry} />
-            )}
+            {selectedEntry.kind === 'letter' && <LetterModal entry={selectedEntry} userId={userId} onClose={closeModal} />}
+            {selectedEntry.kind === 'postcard' && <PostcardModal entry={selectedEntry} userId={userId} />}
+            {selectedEntry.kind === 'moment' && <MomentModal entry={selectedEntry} />}
           </div>
         </div>
       )}
@@ -194,19 +207,11 @@ function LetterModal({ entry, userId, onClose }: { entry: TimelineEntry & { kind
 
   return (
     <div>
-      <p className="font-garamond text-ink-faint text-sm italic mb-6">
+      <p className="mb-6 font-garamond text-sm italic text-ink-faint">
         {formatDate(entry.sent_at)} · {isFromMe ? 'you wrote' : `from ${fromName}`}
       </p>
-      <div
-        className="font-garamond text-ink leading-relaxed mb-8 letter-body"
-      >
-        {entry.body}
-      </div>
-      <Link
-        href={`/letters/${entry.id}`}
-        onClick={onClose}
-        className="font-garamond text-sm italic text-ink-muted hover:text-ink transition-colors duration-200"
-      >
+      <div className="letter-body mb-8 font-garamond leading-relaxed text-ink">{entry.body}</div>
+      <Link href={`/letters/${entry.id}`} onClick={onClose} className="font-garamond text-sm italic text-ink-muted hover:text-ink transition-colors duration-200">
         Open full letter →
       </Link>
     </div>
@@ -220,15 +225,13 @@ function PostcardModal({ entry, userId }: { entry: TimelineEntry & { kind: 'post
 
   return (
     <div>
-      <p className="font-garamond text-ink-faint text-sm italic mb-5">
+      <p className="mb-5 font-garamond text-sm italic text-ink-faint">
         {formatDate(entry.sent_at)} · {isFromMe ? 'you sent' : `from ${fromName}`}
       </p>
       <div className="bg-white p-2 pb-8">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={entry.image_url} alt={entry.caption || 'postcard'} className="w-full object-cover" />
-        {entry.caption && (
-          <p className="font-garamond italic text-ink-muted text-sm text-center mt-4 px-2">{entry.caption}</p>
-        )}
+        {entry.caption && <p className="mt-4 px-2 text-center font-garamond text-sm italic text-ink-muted">{entry.caption}</p>}
       </div>
     </div>
   )
@@ -237,13 +240,9 @@ function PostcardModal({ entry, userId }: { entry: TimelineEntry & { kind: 'post
 function MomentModal({ entry }: { entry: TimelineEntry & { kind: 'moment' } }) {
   return (
     <div>
-      <p className="font-garamond text-ink-faint text-sm italic mb-4">{formatDate(entry.occurred_at)}</p>
-      <p className="font-garamond text-2xl text-ink mb-4">{entry.title}</p>
-      {entry.note && (
-        <p className="font-garamond text-ink-muted italic leading-relaxed" style={{ fontSize: '1.0625rem', lineHeight: '1.9' }}>
-          {entry.note}
-        </p>
-      )}
+      <p className="mb-4 font-garamond text-sm italic text-ink-faint">{formatDate(entry.occurred_at)}</p>
+      <p className="mb-4 font-garamond text-2xl text-ink">{entry.title}</p>
+      {entry.note && <p className="font-garamond text-[1.0625rem] italic leading-[1.9] text-ink-muted">{entry.note}</p>}
     </div>
   )
 }

@@ -8,6 +8,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
+import { getSiteUrlFromEnv } from '@/lib/supabase/config'
 
 export async function signIn(email: string): Promise<{ error?: string; success?: boolean }> {
   const allowedEmails = [
@@ -26,7 +27,16 @@ export async function signIn(email: string): Promise<{ error?: string; success?:
       : (process.env.DISPLAY_NAME_2 || email.split('@')[0])
 
   const headersList = await headers()
-  const origin = headersList.get('origin') || ''
+  const forwardedProto = headersList.get('x-forwarded-proto') || 'https'
+  const forwardedHost = headersList.get('x-forwarded-host') || headersList.get('host')
+  const headerOrigin = headersList.get('origin')
+
+  const runtimeOrigin = headerOrigin || (forwardedHost ? `${forwardedProto}://${forwardedHost}` : null)
+  const siteUrl = getSiteUrlFromEnv() || runtimeOrigin
+
+  if (!siteUrl) {
+    return { error: 'Could not determine site URL for magic link redirect.' }
+  }
 
   const supabase = await createClient()
 
@@ -34,7 +44,7 @@ export async function signIn(email: string): Promise<{ error?: string; success?:
     email,
     options: {
       // After clicking the magic link, user is redirected here to exchange the code for a session
-      emailRedirectTo: `${origin}/auth/callback`,
+      emailRedirectTo: `${siteUrl}/auth/callback`,
       data: { display_name: displayName },
     },
   })
