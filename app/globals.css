@@ -2,70 +2,42 @@
 @tailwind components;
 @tailwind utilities;
 
-/* LEARN: CSS custom properties (variables) defined here are the single
-   source of truth for the colour palette. Tailwind reads these via
-   tailwind.config.ts. If we ever want a dark mode or seasonal theme,
-   we change values here and the whole app updates. */
-
 :root {
-  --paper: #FAF8F5;
-  --paper-dark: #F0EBE3;
-  --paper-darker: #E8DDD0;
-  --ink: #1C1410;
-  --ink-muted: #6B5B4E;
-  --ink-faint: #B09880;
-  --accent: #7C5C4C;
-  --accent-light: #A07060;
-  --border: #E8E0D5;
-  --border-dark: #D8CCBE;
+  var(--paper): #FAF8F5;
+  var(--paper-dark): #F0EBE3;
+  var(--ink): #0A0A0A; 
+  var(--ink-muted): #525252;
+  var(--accent): #7C5C4C;
+  var(--accent-light): #A07060;
+  var(--border): rgba(232, 224, 213, 0.5);
 }
 
-*,
-*::before,
-*::after {
+*, *::before, *::after {
   box-sizing: border-box;
+}
+
+body {
+  background-color: var(--paper);
+  background-image: 
+    radial-gradient(at 0% 0%, hsla(28, 46%, 92%, 1) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, hsla(38, 56%, 89%, 1) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, hsla(18, 46%, 90%, 1) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, hsla(8, 36%, 94%, 1) 0px, transparent 50%);
+  background-attachment: fixed;
+  color: var(--ink);
+  font-family: var(--font-garamond), serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 html {
   scroll-behavior: smooth;
 }
 
-/* Text selection — uses accent colour to feel intentional */
 ::selection {
   background-color: var(--accent);
   color: var(--paper);
 }
 
-/* Minimal, warm scrollbar */
 ::-webkit-scrollbar {
-  width: 5px;
-}
-::-webkit-scrollbar-track {
-  background: var(--paper-dark);
-}
-::-webkit-scrollbar-thumb {
-  background: var(--border-dark);
-  border-radius: 2px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--ink-faint);
-}
-
-/* Inputs and textareas: no outline, we style focus states manually */
-textarea,
-input {
-  outline: none;
-}
-
-textarea {
-  resize: none;
-}
-
-/* Letter reading typography */
-.letter-body {
-  font-size: 1.0625rem;
-  line-height: 1.9;
-  color: var(--ink);
-  white-space: pre-wrap;
-  word-break: break-word;
+  display: none;
 }
