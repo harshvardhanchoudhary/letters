@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { signOut } from '@/app/actions/auth'
-import { MainTabBar } from './MainTabBar'
+import FloatingNav from './FloatingNav'
 
 function resolveDisplayName(email: string | undefined | null, displayName: string | null | undefined): string {
   if (displayName) return displayName
@@ -12,6 +12,7 @@ function resolveDisplayName(email: string | undefined | null, displayName: strin
 }
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
+  // 1. Keeping all your vital backend auth and data fetching
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -25,36 +26,31 @@ export default async function MainLayout({ children }: { children: React.ReactNo
   const myName = resolveDisplayName(profile?.email, profile?.display_name)
   const partnerName = resolveDisplayName(partner?.email, partner?.display_name)
 
-  const tabs = [
-    { href: '/', label: 'home' },
-    { href: '/letters', label: 'letters', dot: (unreadLetters ?? 0) > 0 },
-    { href: '/timeline', label: 'timeline' },
-    { href: '/mood', label: 'mood' },
-    { href: '/library', label: 'library' },
-  ]
-
   return (
-    <div className="min-h-screen bg-paper pb-20">
-      <header className="sticky top-0 z-30 border-b border-border bg-paper/95 backdrop-blur supports-[backdrop-filter]:bg-paper/80">
-        <div className="mx-auto flex w-full max-w-xl items-center justify-between px-4 py-3">
-          <Link href="/" className="group">
-            <p className="font-garamond text-[0.7rem] text-ink-faint">{myName} &amp; {partnerName}</p>
-            <p className="font-garamond text-xl italic text-ink transition-colors duration-200 group-hover:text-accent">letters</p>
+    <div className="min-h-[100dvh] w-full flex flex-col relative selection:bg-accent selection:text-paper">
+      
+      {/* 2. A completely transparent, minimal header just for names and sign out */}
+      <header className="absolute top-0 w-full z-30 pt-8 px-6">
+        <div className="mx-auto flex w-full max-w-2xl items-center justify-between">
+          <Link href="/" className="group mix-blend-multiply">
+            <p className="font-garamond text-[0.65rem] uppercase tracking-widest text-ink-muted/60">{myName} & {partnerName}</p>
           </Link>
 
           <form action={signOut}>
-            <button type="submit" className="font-garamond text-sm italic text-ink-faint transition-colors duration-200 hover:text-ink-muted">
-              leave
+            <button type="submit" className="font-garamond text-[0.65rem] uppercase tracking-widest text-ink-muted/60 transition-colors duration-200 hover:text-ink">
+              Leave
             </button>
           </form>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-xl px-4 py-6">
+      {/* 3. The main content area, with padding pushed down so it breathes */}
+      <main className="flex-1 w-full max-w-2xl mx-auto px-4 pt-24 pb-32">
         {children}
       </main>
 
-      <MainTabBar tabs={tabs} />
+      {/* 4. Our brand new floating navigation */}
+      <FloatingNav />
     </div>
   )
 }
