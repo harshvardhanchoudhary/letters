@@ -3,13 +3,13 @@
 @tailwind utilities;
 
 :root {
-  var(--paper): #FAF8F5;
-  var(--paper-dark): #F0EBE3;
-  var(--ink): #0A0A0A; 
-  var(--ink-muted): #525252;
-  var(--accent): #7C5C4C;
-  var(--accent-light): #A07060;
-  var(--border): rgba(232, 224, 213, 0.5);
+  --paper: #FAF8F5;
+  --paper-dark: #F0EBE3;
+  --ink: #0A0A0A; 
+  --ink-muted: #525252;
+  --accent: #7C5C4C;
+  --accent-light: #A07060;
+  --border: rgba(232, 224, 213, 0.5);
 }
 
 *, *::before, *::after {
