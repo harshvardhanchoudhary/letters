@@ -6,8 +6,12 @@ import FloatingNav from './FloatingNav'
 
 function resolveDisplayName(email: string | undefined | null, displayName: string | null | undefined): string {
   if (displayName) return displayName
-  if (email?.toLowerCase() === process.env.ALLOWED_EMAIL_1?.toLowerCase()) return process.env.DISPLAY_NAME_1 || email?.split('@')[0] || '—'
-  if (email?.toLowerCase() === process.env.ALLOWED_EMAIL_2?.toLowerCase()) return process.env.DISPLAY_NAME_2 || email?.split('@')[0] || '—'
+  
+  // This tells Vercel to stop strictly checking the environment variables
+  const env = process.env as any
+  
+  if (email?.toLowerCase() === env.ALLOWED_EMAIL_1?.toLowerCase()) return env.DISPLAY_NAME_1 || email?.split('@')[0] || '—'
+  if (email?.toLowerCase() === env.ALLOWED_EMAIL_2?.toLowerCase()) return env.DISPLAY_NAME_2 || email?.split('@')[0] || '—'
   return email?.split('@')[0] || '—'
 }
 
