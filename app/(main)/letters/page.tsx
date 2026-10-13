@@ -1,43 +1,29 @@
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import Link from 'next/link'
-import LettersListClient from './LettersListClient'
-
+import { relationship } from "@/lib/relationship";
+import Link from "next/link";
+import { PageHeading } from "@/components/PageHeading";
+import LettersListClient from "./LettersListClient";
 export default async function LettersPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const { data: letters } = await supabase
-    .from('letters')
-    .select(`
-      id, body, sent_at, read_at, from_id, to_id,
-      from_profile:profiles!from_id(display_name, email)
-    `)
-    .or(`from_id.eq.${user.id},to_id.eq.${user.id}`)
-    .order('sent_at', { ascending: true })
-
+  const { supabase, user, partnerName } = await relationship();
+  const { data, error } = await supabase
+    .from("letters")
+    .select(
+      "id,subject,body,sent_at,read_at,from_id,to_id,from_profile:profiles!from_id(display_name)",
+    )
+    .order("sent_at", { ascending: false });
+  if (error) throw new Error("Letters unavailable");
   return (
-    <div className="max-w-xl">
-      <div className="mb-12 flex items-baseline justify-between">
-        <h1 className="font-garamond text-2xl text-ink">Letters</h1>
-        <Link href="/letters/write" className="font-garamond text-sm italic text-ink-muted transition-colors duration-200 hover:text-ink">
-          write →
-        </Link>
-      </div>
-
-      {(!letters || letters.length === 0) && (
-        <p className="font-garamond italic text-ink-muted">
-          No letters yet.{' '}
-          <Link href="/letters/write" className="underline decoration-border-dark underline-offset-4 transition-colors duration-200 hover:text-ink">
-            Write the first one.
+    <>
+      <PageHeading
+        number="01"
+        title="In your own words."
+        description={`Your letters with ${partnerName}. Every word you have kept, together.`}
+        action={
+          <Link className="button" href="/letters/write">
+            Write to {partnerName} ↗
           </Link>
-        </p>
-      )}
-
-      {letters && letters.length > 0 && (
-        <LettersListClient letters={letters} userId={user.id} />
-      )}
-    </div>
-  )
+        }
+      />
+      <LettersListClient letters={data || []} userId={user.id} />
+    </>
+  );
 }

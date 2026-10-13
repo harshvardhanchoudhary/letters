@@ -92,3 +92,34 @@ _Last updated: 2026-04-04 (UTC)_
 - Implemented timeline "photo days" hero cards: each day with postcards/photos now renders a visual hero card above the timeline track.
 - User preference captured: phase options are free-typed by her (not fixed presets).
 - Next expected focus: refine full-screen letter reading polish and timeline filters.
+
+## Relaunch update — 2026-10-13 (supersedes earlier phase counts)
+
+The working branch is now in `/Users/harshchoudhary/Documents/ChatGPT/Letters`; the audited Desktop copy remains preserved.
+
+Implemented five complete local surfaces: Letters, Our story, Check-in, Library and Together. Warm paper/terracotta design, responsive navigation, focused letter reading, manual drafts, metadata-stripped photo uploads, optional private cycle/reflection data, book progress, saved video/article discussions and editable plans. Added fictional `/demo` routes for review without personal data.
+
+Authentication uses validated Supabase users and a two-email allowlist. Cookie refresh is preserved through redirects. The relaunch database scripts add membership and privacy policies, retaining legacy data. A separate photo policy script and manual bucket privacy cutover are prepared.
+
+Verified: TypeScript, ESLint, production build, five tests including an isolated PostgreSQL privacy integration test, and 16 browser tests across Chromium and iPhone WebKit. Desktop and mobile screenshots reviewed. Local servers bind only to 127.0.0.1. GitHub Actions, environment template and `docs/RELEASE.md` added.
+
+Live read-only audit still shows 69 letters, 2 profiles, 1 postcard, 0 moments, no checkins table, public photo bucket. Private recovery row export and original photograph are stored under ignored `backups/`. This is not a full authentication/provider backup.
+
+Remaining: confirm Vercel Git mapping and production branch; commit/push reviewed source to preview; manually apply the reviewed SQL; verify actual two-account behavior and Safari reopening; coordinate private photo bucket and production release. Neither migration nor deployment has been performed. User requested manual account/production steps for learning, and desktop control is disabled.
+
+
+## Personal app release — 2026-10-14
+
+User explicitly rejected a generic/demo experience. Removed every demo route, fictional fixture, stock photo, sample link and demo save bypass. Real names now lead the home page and writer; the first original letter dates the shared history; library filters distinguish each person's finds; check-ins name the actual partner. Personal names and history remain private runtime data, never checked into source.
+
+New interaction design: charcoal navigation, real photo backdrop, envelope inbox, conversation prompts, random letter rediscovery, timeline year chapters, a browsable bookshelf, energy-linked care suggestions, date idea picker and shared calendar.
+
+Database `relationship_relaunch` applied successfully. Original row fingerprints before/after were identical for 69 letters, 2 profiles and 1 postcard; moments remain empty. All six new tables have RLS enabled. Security Advisor reports intentionally closed private.members plus the existing leaked-password protection warning. Local PostgreSQL tests verify member/outsider boundaries and private notes/drafts/cycle data.
+
+Vercel confirmed: project prj_tNloDuBXRLHPDIoM6mxX6EgqFtNR owns lettersforus.vercel.app. Original alias deployment dpl_CVYAd16ZSBoKFFW2uxKzYnv7ShnU retained as rollback reference. Explicit team-slug lookup failed but project-ID lookup through the connected account succeeded. Production SITE_URL configured to the existing website. Deployment still pending at this checkpoint.
+
+The earlier 26 UI tests passed before demo removal. Current automated browser suite tests real login boundaries; do not report the older suite as authenticated production verification. Real two-account save/reopen checks remain necessary.
+
+Release checkpoint: the real-app build, lint, typecheck and five unit/database tests pass. Six browser checks pass across desktop Chromium and iPhone WebKit, including login layouts at 320, 375, 768 and 1366 pixels. The complete earlier interaction suite passed before public fixture routes were removed; real authenticated-device verification remains pending. Sign-in now uses shouldCreateUser:false for the existing two accounts.
+
+Local implementation committed. Git push was blocked by automatic approval review because the existing GitHub repository is public and requires explicit approval to publish the source. The user has been asked; do not bypass that rejection through another Git publishing mechanism. No source push or new production deployment has occurred. Vercel's existing project and alias have been verified through the connected account, and production SITE_URL was added. Photo privacy cutover remains pending deployment.

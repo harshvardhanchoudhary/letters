@@ -1,97 +1,67 @@
-'use client'
-
-import { useState } from 'react'
-import { addMoment } from '@/app/actions/moments'
-import Link from 'next/link'
-
-export default function AddMomentPage() {
-  const [title, setTitle] = useState('')
-  const [note, setNote] = useState('')
-  const [date, setDate] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!title.trim() || !date || saving) return
-
-    setSaving(true)
-    setError('')
-
-    const formData = new FormData()
-    formData.set('title', title)
-    formData.set('note', note)
-    formData.set('occurred_at', date)
-
-    const result = await addMoment(formData)
-    if (result?.error) {
-      setError(result.error)
-      setSaving(false)
-    }
-  }
-
+"use client";
+import { useState } from "react";
+import { addMoment } from "@/app/actions/moments";
+import { PageHeading } from "@/components/PageHeading";
+export default function AddMoment() {
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
   return (
-    <div className="max-w-lg">
-      <div className="mb-10">
-        <Link
-          href="/timeline"
-          className="font-garamond text-ink-faint hover:text-ink-muted italic text-sm transition-colors duration-200"
-        >
-          ← timeline
-        </Link>
-      </div>
-
-      <h1 className="font-garamond text-2xl text-ink mb-10">Add a moment</h1>
-
-      <form onSubmit={handleSubmit} className="space-y-8">
-        <div>
+    <div className="reading-page">
+      <PageHeading
+        number="02 / MOMENT"
+        title="Remember this."
+        description="Some moments are too good to leave behind."
+      />
+      <form
+        className="form-grid"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setBusy(true);
+          setError("");
+          try {
+            const result = await addMoment(new FormData(e.currentTarget));
+            if (result?.error) {
+              setError(result.error);
+              setBusy(false);
+            }
+          } catch (e) {
+            if (e instanceof Error && e.message.includes("NEXT_REDIRECT"))
+              throw e;
+            setError("Your moment could not be saved. Please try again.");
+            setBusy(false);
+          }
+        }}
+      >
+        <div className="wide">
+          <label htmlFor="moment-title">A name for this moment</label>
           <input
-            type="text"
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            placeholder="What was this moment?"
-            autoFocus
-            className="w-full bg-transparent font-garamond text-lg text-ink placeholder:text-ink-faint border-b border-border pb-2.5 focus:border-ink-muted transition-colors duration-200"
+            id="moment-title"
+            name="title"
+            required
+            maxLength={250}
+            placeholder="That Sunday with nowhere to be"
           />
         </div>
-
+        <div className="wide">
+          <label htmlFor="moment-note">The little details</label>
+          <textarea id="moment-note" name="note" rows={5} maxLength={10000} />
+        </div>
         <div>
-          <textarea
-            value={note}
-            onChange={e => setNote(e.target.value)}
-            placeholder="A note about it… (optional)"
-            rows={5}
-            className="w-full bg-transparent font-garamond text-ink placeholder:text-ink-faint"
-            style={{ fontSize: '1.0625rem', lineHeight: '1.9' }}
-          />
+          <label htmlFor="moment-date">When was it?</label>
+          <input id="moment-date" name="occurred_at" type="date" required />
         </div>
-
-        <div>
-          <label className="font-garamond text-ink-faint text-sm italic block mb-2">
-            When did this happen?
-          </label>
-          <input
-            type="date"
-            value={date}
-            onChange={e => setDate(e.target.value)}
-            className="bg-transparent font-garamond text-ink-muted border-b border-border pb-1.5 focus:border-ink-muted transition-colors duration-200"
-          />
-        </div>
-
         {error && (
-          <p className="font-garamond text-accent italic text-sm">{error}</p>
+          <p className="error wide" role="alert">
+            {error}
+          </p>
         )}
-
-        <div className="flex justify-end border-t border-border pt-5">
-          <button
-            type="submit"
-            disabled={saving || !title.trim() || !date}
-            className="font-garamond text-base italic text-ink-muted hover:text-ink transition-colors duration-200 disabled:opacity-40"
-          >
-            {saving ? 'saving…' : 'Add to timeline →'}
+        <div className="form-actions wide">
+          <span className="eyebrow">PART OF YOUR STORY</span>
+          <button className="button" disabled={busy}>
+            {busy ? "Saving…" : "Keep this moment ↗"}
           </button>
         </div>
       </form>
     </div>
-  )
+  );
 }

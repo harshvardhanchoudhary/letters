@@ -1,31 +1,26 @@
-'use server'
-
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-
+"use server";
+import { requireUser } from "@/lib/session";
+import { text, validDate } from "@/lib/validation";
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 export async function addMoment(
-  formData: FormData
+  form: FormData,
 ): Promise<{ error?: string } | void> {
-  const supabase = await createClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const title = (formData.get('title') as string)?.trim()
-  const note = (formData.get('note') as string)?.trim() || null
-  const occurredAt = (formData.get('occurred_at') as string)?.trim()
-
-  if (!title) return { error: 'A moment needs a title.' }
-  if (!occurredAt) return { error: 'A moment needs a date.' }
-
-  const { error } = await supabase.from('moments').insert({
+  const { supabase, user } = await requireUser();
+  const title = text(form, "title", 250),
+    note = text(form, "note", 10000),
+    date = text(form, "occurred_at");
+  if (!title || !validDate(date))
+    return { error: "Add a title and a valid date for this memory." };
+  const { error } = await supabase.from("moments").insert({
     created_by: user.id,
     title,
-    note,
-    occurred_at: new Date(occurredAt).toISOString(),
-  })
-
-  if (error) return { error: error.message }
-
-  redirect('/timeline')
+    note: note || null,
+    occurred_at: date + "T12:00:00Z",
+  });
+  if (error)
+    return { error: "This moment could not be saved. Please try again." };
+  revalidatePath("/");
+  revalidatePath("/timeline");
+  redirect("/timeline");
 }

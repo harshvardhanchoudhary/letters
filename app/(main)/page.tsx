@@ -1,134 +1,72 @@
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import Link from 'next/link'
-import type { Profile, Currently } from '@/types/database'
-
-function resolveDisplayName(email: string | undefined | null, displayName: string | null | undefined): string {
-  if (displayName) return displayName
-  if (email?.toLowerCase() === process.env.ALLOWED_EMAIL_1?.toLowerCase()) return process.env.DISPLAY_NAME_1 || email?.split('@')[0] || '—'
-  if (email?.toLowerCase() === process.env.ALLOWED_EMAIL_2?.toLowerCase()) return process.env.DISPLAY_NAME_2 || email?.split('@')[0] || '—'
-  return email?.split('@')[0] || '—'
-}
-
-function timeAgo(dateString: string) {
-  const date = new Date(dateString)
-  const now = new Date()
-  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
-  if (diffDays <= 0) return 'today'
-  if (diffDays === 1) return 'yesterday'
-  if (diffDays < 7) return `${diffDays} days ago`
-  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-}
-
-function firstLine(body: string, max: number) {
-  const first = body.split('\n').find((line) => line.trim()) || ''
-  return first.length > max ? `${first.substring(0, max)}…` : first
-}
-
+import { requireUser } from "@/lib/session";
+import { displayName } from "@/lib/access";
+import { photoUrl } from "@/lib/photos";
+import { Home } from "@/components/Home";
 export default async function HomePage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const [
-    { data: myProfile },
-    { data: partner },
-    { data: unread },
-    { data: partnerCurrently },
-    { count: unreadCount },
-  ] = await Promise.all([
-    supabase.from('profiles').select('id, display_name, email').eq('id', user.id).single(),
-    supabase.from('profiles').select('id, display_name, email').neq('id', user.id).single<Profile>(),
-    supabase.from('letters').select('id, body, sent_at').eq('to_id', user.id).is('read_at', null).order('sent_at', { ascending: false }).limit(1),
-    supabase.from('currently').select('label, value').neq('user_id', user.id).order('updated_at', { ascending: false }),
-    supabase.from('letters').select('*', { count: 'exact', head: true }).eq('to_id', user.id).is('read_at', null),
-  ])
-
-  const myName = resolveDisplayName(myProfile?.email, myProfile?.display_name)
-  const partnerName = resolveDisplayName(partner?.email, partner?.display_name)
-
-  const unreadLetter = unread?.[0]
-  const moodItems = ((partnerCurrently as Currently[] | null) || []).filter((item) =>
-    ['mood', 'phase', 'energy', 'social battery', 'need from partner', 'note'].includes(item.label)
+  const { supabase, user } = await requireUser();
+  const [profiles, letters, mood, plans, books, photos, firstLetter] =
+    await Promise.all([
+      supabase.from("profiles").select("*"),
+      supabase
+        .from("letters")
+        .select("id,subject,body,sent_at", { count: "exact" })
+        .eq("to_id", user.id)
+        .is("read_at", null)
+        .order("sent_at", { ascending: false })
+        .limit(1),
+      supabase
+        .from("checkins")
+        .select("mood,need,phase")
+        .neq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1),
+      supabase
+        .from("plans")
+        .select("title,planned_for")
+        .eq("status", "planned")
+        .order("planned_for")
+        .limit(1),
+      supabase
+        .from("library_items")
+        .select("title,progress")
+        .eq("kind", "book")
+        .eq("status", "reading")
+        .order("created_at", { ascending: false })
+        .limit(1),
+      supabase
+        .from("postcards")
+        .select("image_url,caption")
+        .order("sent_at", { ascending: false })
+        .limit(1),
+      supabase.from("letters").select("sent_at").order("sent_at").limit(1),
+    ]);
+  if (
+    [profiles, letters, mood, plans, books, photos, firstLetter].some(
+      (r) => r.error,
+    )
   )
-
-  const moodMap = new Map(moodItems.map((item) => [item.label, item.value]))
-
+    throw new Error("Journal unavailable");
+  const me = profiles.data?.find((p) => p.id === user.id),
+    partner = profiles.data?.find((p) => p.id !== user.id);
+  const { count, error } = await supabase
+    .from("letters")
+    .select("id", { count: "exact", head: true });
+  if (error) throw new Error("Letters unavailable");
+  const photo = photos.data?.[0];
+  const signed = photo ? await photoUrl(supabase, photo.image_url) : "";
   return (
-    <div className="space-y-5">
-      <section className="rounded-lg border border-border px-4 py-5">
-        <p className="font-garamond text-xs italic text-ink-faint">Unread letter spotlight</p>
-
-        {unreadLetter ? (
-          <>
-            <p className="mt-2 font-garamond text-sm italic text-ink-faint">
-              from {partnerName} · {timeAgo(unreadLetter.sent_at)}
-              {(unreadCount ?? 0) > 1 ? ` · ${(unreadCount ?? 0) - 1} more waiting` : ''}
-            </p>
-
-            <Link href={`/letters/${unreadLetter.id}`} className="mt-3 block">
-              <p className="font-garamond text-lg leading-8 text-ink">{firstLine(unreadLetter.body, 220)}</p>
-              <p className="mt-3 font-garamond text-sm italic text-ink-muted">Open letter →</p>
-            </Link>
-          </>
-        ) : (
-          <>
-            <p className="mt-2 font-garamond text-ink-muted italic">No unread letters right now.</p>
-            <Link href="/letters/write" className="mt-3 inline-block font-garamond text-sm italic text-ink-muted hover:text-ink">
-              Write one now →
-            </Link>
-          </>
-        )}
-      </section>
-
-      <section className="rounded-lg border border-border px-4 py-5">
-        <p className="font-garamond text-xs italic text-ink-faint">Latest mood + phase</p>
-
-        {partner ? (
-          <>
-            <p className="mt-2 font-garamond text-sm italic text-ink-faint">{partnerName} shared</p>
-
-            {(moodMap.get('mood') || moodMap.get('phase')) ? (
-              <div className="mt-3 space-y-2">
-                {moodMap.get('mood') && (
-                  <p className="font-garamond text-ink">
-                    <span className="text-ink-faint italic">mood </span>{moodMap.get('mood')}
-                  </p>
-                )}
-                {moodMap.get('phase') && (
-                  <p className="font-garamond text-ink">
-                    <span className="text-ink-faint italic">phase </span>{moodMap.get('phase')}
-                  </p>
-                )}
-                {moodMap.get('need from partner') && (
-                  <p className="font-garamond text-ink-muted">
-                    <span className="text-ink-faint italic">need </span>{moodMap.get('need from partner')}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <p className="mt-3 font-garamond italic text-ink-muted">No mood check-in yet.</p>
-            )}
-
-            <Link href="/mood" className="mt-4 inline-block font-garamond text-sm italic text-ink-muted hover:text-ink">
-              Open mood space →
-            </Link>
-          </>
-        ) : (
-          <p className="mt-2 font-garamond italic text-ink-muted">Waiting for both people to join.</p>
-        )}
-      </section>
-
-      <section className="rounded-lg border border-border px-4 py-5">
-        <p className="font-garamond text-xs italic text-ink-faint">Quick routes</p>
-        <div className="mt-3 flex flex-wrap gap-4">
-          <Link href="/letters/write" className="font-garamond italic text-ink-muted hover:text-ink">Write letter</Link>
-          <Link href="/timeline" className="font-garamond italic text-ink-muted hover:text-ink">Open timeline</Link>
-          <Link href="/library" className="font-garamond italic text-ink-muted hover:text-ink">Open library</Link>
-        </div>
-      </section>
-
-      <p className="px-1 font-garamond text-xs italic text-ink-faint">{myName}, this home now prioritizes unread letters and mood visibility first.</p>
-    </div>
-  )
+    <Home
+      data={{
+        myName: displayName(me?.email, me?.display_name),
+        partnerName: displayName(partner?.email, partner?.display_name),
+        unread: letters.data?.[0] || null,
+        letterCount: count || 0,
+        firstLetterDate: firstLetter.data?.[0]?.sent_at || null,
+        mood: mood.data?.[0] || null,
+        plan: plans.data?.[0] || null,
+        book: books.data?.[0] || null,
+        photo: photo && signed ? { url: signed, caption: photo.caption } : null,
+      }}
+    />
+  );
 }

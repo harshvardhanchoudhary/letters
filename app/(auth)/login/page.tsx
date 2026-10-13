@@ -1,105 +1,100 @@
-'use client'
-
-// LEARN: 'use client' means this component runs in the browser.
-// We need it here because we're managing local state (what the user typed,
-// whether we've sent the link, etc). Server components can't do that.
-// The actual sign-in logic still runs on the server via the signIn action.
-
-import { useState } from 'react'
-import { signIn } from '@/app/actions/auth'
-import { useSearchParams } from 'next/navigation'
-import { Suspense } from 'react'
-
+"use client";
+import { useState, Suspense } from "react";
+import { signIn } from "@/app/actions/auth";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 function LoginForm() {
-  const [email, setEmail] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [sent, setSent] = useState(false)
-  const [error, setError] = useState('')
-  const searchParams = useSearchParams()
-  const linkExpired = searchParams.get('error') === 'link_expired'
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!email.trim()) return
-
-    setLoading(true)
-    setError('')
-
-    const result = await signIn(email.trim())
-
-    if (result?.error) {
-      setError(result.error)
-    } else {
-      setSent(true)
-    }
-
-    setLoading(false)
-  }
-
-  if (sent) {
-    return (
-      <div className="text-center max-w-sm">
-        <p className="font-garamond text-3xl italic text-ink mb-10">letters</p>
-        <p className="font-garamond text-ink text-lg mb-2">
-          A letter is on its way to you.
-        </p>
-        <p className="font-garamond text-ink-muted italic text-base">
-          Open your inbox and click the link inside to enter.
-        </p>
-      </div>
-    )
-  }
-
+  const [email, setEmail] = useState(""),
+    [loading, setLoading] = useState(false),
+    [sent, setSent] = useState(false),
+    [error, setError] = useState("");
+  const params = useSearchParams();
   return (
-    <div className="w-full max-w-xs">
-      <div className="text-center mb-14">
-        <h1 className="font-garamond text-4xl italic text-ink tracking-wide">letters</h1>
-        <p className="font-garamond text-ink-muted mt-2 text-base italic">
-          A private space for two.
-        </p>
-      </div>
-
-      {linkExpired && (
-        <p className="font-garamond text-accent text-sm italic text-center mb-6">
-          That link has expired. Enter your email to get a new one.
-        </p>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-8">
-        <input
-          type="email"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          placeholder="your email"
-          required
-          autoFocus
-          className="w-full bg-transparent border-b border-border-dark text-ink font-garamond text-lg py-2.5 placeholder:text-ink-faint focus:border-ink-muted transition-colors duration-200"
-        />
-
-        {error && (
-          <p className="font-garamond text-accent text-sm italic">{error}</p>
-        )}
-
-        <button
-          type="submit"
-          disabled={loading || !email.trim()}
-          className="w-full font-garamond text-base italic py-2 text-ink-muted hover:text-ink transition-colors duration-200 disabled:opacity-40"
-        >
-          {loading ? 'sending...' : 'enter →'}
-        </button>
-      </form>
-
-      <p className="text-center text-ink-faint font-garamond text-xs mt-16 italic">
-        A magic link will be sent to your email.
-      </p>
+    <div className="login-page">
+      <section className="login-art">
+        <Link href="/" className="wordmark">
+          letters<span className="wordmark-dot">.</span>
+        </Link>
+        <div className="login-art-lines" />
+        <div>
+          <h2>
+            A little more of us.
+            <br />
+            <em>One page at a time.</em>
+          </h2>
+          <p className="eyebrow">LETTERS / MEMORIES / EVERYTHING IN BETWEEN</p>
+        </div>
+      </section>
+      <section className="login-form-side">
+        <div className="login-form">
+          <p className="eyebrow">A PRIVATE JOURNAL FOR TWO</p>
+          <h1>{sent ? "Check your inbox." : "Welcome home."}</h1>
+          <p className="subtitle">
+            {sent
+              ? "Your sign-in link is on its way. Open it in this browser to return to your journal."
+              : "A place to write, remember, and keep discovering each other."}
+          </p>
+          {!sent && (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (loading) return;
+                setLoading(true);
+                setError("");
+                try {
+                  const result = await signIn(email);
+                  if (result.error) setError(result.error);
+                  else setSent(true);
+                } catch {
+                  setError("We couldn’t send your link. Please try again.");
+                } finally {
+                  setLoading(false);
+                }
+              }}
+            >
+              <div>
+                <label htmlFor="email">Your email</label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  placeholder="you@example.com"
+                />
+              </div>
+              {(error || params.has("error")) && (
+                <p role="alert" className="error">
+                  {error ||
+                    (params.get("error") === "not_invited"
+                      ? "This space is by invitation only."
+                      : "That link has expired. Request a new one here.")}
+                </p>
+              )}
+              <button className="button" disabled={loading}>
+                {loading ? "Sending your link…" : "Send me a sign-in link ↗"}
+              </button>
+              <p className="eyebrow" style={{ textAlign: "center" }}>
+                NO PASSWORD. JUST YOUR INBOX.
+              </p>
+            </form>
+          )}
+          {sent && (
+            <button className="text-link" onClick={() => setSent(false)}>
+              Use another email ↗
+            </button>
+          )}
+        </div>
+      </section>
     </div>
-  )
+  );
 }
-
 export default function LoginPage() {
   return (
     <Suspense>
       <LoginForm />
     </Suspense>
-  )
+  );
 }

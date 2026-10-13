@@ -1,53 +1,55 @@
-import { createClient } from '@/lib/supabase/server'
-import { redirect, notFound } from 'next/navigation'
-import Link from 'next/link'
-import { markAsRead } from '@/app/actions/letters'
+import { relationship } from "@/lib/relationship";
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import { markAsRead } from "@/app/actions/letters";
 
 function formatLetterDate(dateString: string) {
-  return new Date(dateString).toLocaleDateString('en-GB', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
+  return new Date(dateString).toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 }
 
 export default async function LetterPage({
   params,
 }: {
-  params: Promise<{ id: string }>
+  params: Promise<{ id: string }>;
 }) {
-  const { id } = await params
+  const { id } = await params;
 
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const { supabase, user, partnerName } = await relationship();
 
   const { data: letter } = await supabase
-    .from('letters')
-    .select(`
-      id, body, sent_at, read_at, from_id, to_id,
+    .from("letters")
+    .select(
+      `
+      id, subject, body, sent_at, read_at, from_id, to_id,
       from_profile:profiles!from_id(display_name, email)
-    `)
-    .eq('id', id)
-    .single()
+    `,
+    )
+    .eq("id", id)
+    .single();
 
-  if (!letter) notFound()
+  if (!letter) notFound();
 
-  if (letter.from_id !== user.id && letter.to_id !== user.id) notFound()
+  if (letter.from_id !== user.id && letter.to_id !== user.id) notFound();
 
   if (letter.to_id === user.id && !letter.read_at) {
-    await markAsRead(id)
+    await markAsRead(id);
   }
 
-  const isFromMe = letter.from_id === user.id
-  const fromProfile = Array.isArray(letter.from_profile) ? letter.from_profile[0] : letter.from_profile
+  const isFromMe = letter.from_id === user.id;
+  const fromProfile = Array.isArray(letter.from_profile)
+    ? letter.from_profile[0]
+    : letter.from_profile;
   const fromName = isFromMe
-    ? 'you'
-    : fromProfile?.display_name || fromProfile?.email?.split('@')[0] || '—'
+    ? "you"
+    : fromProfile?.display_name || fromProfile?.email?.split("@")[0] || "—";
 
   return (
-    <div className="max-w-lg">
+    <div className="reading-page personal-letter">
       <div className="mb-12">
         <Link
           href="/letters"
@@ -69,6 +71,9 @@ export default async function LetterPage({
         )}
       </div>
 
+      <h1 className="personal-letter-title">
+        {letter.subject || `Dear ${isFromMe ? partnerName : "you"},`}
+      </h1>
       {/* Letter body */}
       <div className="letter-body font-garamond mb-16">{letter.body}</div>
 
@@ -84,5 +89,5 @@ export default async function LetterPage({
         </div>
       )}
     </div>
-  )
+  );
 }

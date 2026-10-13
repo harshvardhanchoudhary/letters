@@ -23,3 +23,8 @@ Thumbs.db
 # Editor
 .vscode/
 .idea/
+
+# Private recovery snapshots and test output
+backups/
+playwright-report/
+test-results/

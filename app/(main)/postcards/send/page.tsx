@@ -1,152 +1,93 @@
-'use client'
-
-import { useState, useRef } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { savePostcard } from '@/app/actions/postcards'
-import Link from 'next/link'
-
-export default function SendPostcardPage() {
-  const [preview, setPreview] = useState<string | null>(null)
-  const [file, setFile] = useState<File | null>(null)
-  const [caption, setCaption] = useState('')
-  const [sending, setSending] = useState(false)
-  const [error, setError] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const selected = e.target.files?.[0]
-    if (!selected) return
-    setFile(selected)
-    setPreview(URL.createObjectURL(selected))
-    setError('')
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!file || sending) return
-
-    setSending(true)
-    setError('')
-
-    try {
-      const supabase = createClient()
-      const ext = file.name.split('.').pop() || 'jpg'
-      const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-
-      const { error: uploadError } = await supabase.storage
-        .from('timeline-photos')
-        .upload(path, file, { cacheControl: '3600', upsert: false })
-
-      if (uploadError) throw new Error(uploadError.message)
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('timeline-photos')
-        .getPublicUrl(path)
-
-      const result = await savePostcard(publicUrl, caption.trim() || null)
-      if (result?.error) throw new Error(result.error)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong.')
-      setSending(false)
-    }
-  }
-
+/* eslint-disable @next/next/no-img-element -- Local photo preview. */
+"use client";
+import { useState, useEffect } from "react";
+import { uploadPhoto } from "@/app/actions/postcards";
+import { PageHeading } from "@/components/PageHeading";
+export default function SendPhoto() {
+  const [preview, setPreview] = useState(""),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  useEffect(
+    () => () => {
+      if (preview) URL.revokeObjectURL(preview);
+    },
+    [preview],
+  );
   return (
-    <div className="max-w-sm">
-      <div className="mb-10">
-        <Link
-          href="/postcards"
-          className="font-garamond text-ink-faint hover:text-ink-muted italic text-sm transition-colors duration-200"
-        >
-          ← postcards
-        </Link>
-      </div>
-
-      <form onSubmit={handleSubmit}>
-        {/* Photo area */}
-        <div
-          className="bg-white p-3 pb-10 shadow-sm mb-8 cursor-pointer"
-          onClick={() => !preview && inputRef.current?.click()}
-        >
-          {preview ? (
-            <div className="relative">
-              <div className="aspect-square overflow-hidden bg-paper-dark">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={preview}
-                  alt="Preview"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setPreview(null)
-                  setFile(null)
-                  if (inputRef.current) inputRef.current.value = ''
-                }}
-                className="absolute top-2 right-2 bg-white/80 font-garamond text-ink-muted text-xs px-2 py-1 hover:text-ink transition-colors"
-              >
-                change
-              </button>
-            </div>
-          ) : (
-            <div className="aspect-square bg-paper-darker flex flex-col items-center justify-center gap-3">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" className="text-ink-faint">
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <polyline points="21 15 16 10 5 21" />
-              </svg>
-              <p className="font-garamond italic text-ink-faint text-sm">tap to choose a photo</p>
-            </div>
-          )}
-
-          {/* Caption inside polaroid */}
-          <div className="mt-4 px-1">
-            <input
-              type="text"
-              value={caption}
-              onChange={e => setCaption(e.target.value)}
-              placeholder="add a caption…"
-              className="w-full bg-transparent font-garamond italic text-ink-muted text-sm text-center placeholder:text-ink-faint border-none focus:outline-none"
-            />
-          </div>
-        </div>
-
+    <div className="reading-page">
+      <PageHeading
+        number="02 / PHOTO"
+        title="Keep this day."
+        description="A photo, a few words, a little piece of your story."
+      />
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (busy) return;
+          setBusy(true);
+          setError("");
+          try {
+            const result = await uploadPhoto(new FormData(e.currentTarget));
+            if (result?.error) {
+              setError(result.error);
+              setBusy(false);
+            }
+          } catch (e) {
+            if (e instanceof Error && e.message.includes("NEXT_REDIRECT"))
+              throw e;
+            setError("Your photo could not be saved. Please try again.");
+            setBusy(false);
+          }
+        }}
+      >
+        <label htmlFor="photo">
+          Choose a photo (JPEG, PNG or WebP, up to 8 MB)
+        </label>
         <input
-          ref={inputRef}
+          id="photo"
+          name="photo"
           type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleFileChange}
-          className="hidden"
+          accept="image/jpeg,image/png,image/webp"
+          required
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            setPreview(file ? URL.createObjectURL(file) : "");
+          }}
         />
-
-        {!preview && (
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            className="w-full font-garamond text-base italic text-ink-muted hover:text-ink transition-colors duration-200 border border-border py-3 mb-4"
-          >
-            Choose photo
-          </button>
+        {preview && (
+          <img
+            className="memory-photo"
+            src={preview}
+            alt="Your selected photo"
+            style={{ margin: "25px 0" }}
+          />
         )}
-
+        <label htmlFor="caption" style={{ marginTop: 25 }}>
+          What do you want to remember?
+        </label>
+        <textarea
+          id="caption"
+          name="caption"
+          rows={3}
+          maxLength={2000}
+          placeholder="The long way home. The best kind of afternoon."
+        />
+        <p className="subtitle" style={{ fontSize: 14 }}>
+          Shared only within your journal. Location metadata is removed from new
+          uploads.
+        </p>
         {error && (
-          <p className="font-garamond text-accent italic text-sm mb-5">{error}</p>
+          <p className="error" role="alert">
+            {error}
+          </p>
         )}
-
-        <div className="flex justify-end border-t border-border pt-5">
-          <button
-            type="submit"
-            disabled={!file || sending}
-            className="font-garamond text-base italic text-ink-muted hover:text-ink transition-colors duration-200 disabled:opacity-40"
-          >
-            {sending ? 'sending…' : 'Send postcard →'}
+        <div className="form-actions" style={{ marginTop: 24 }}>
+          <span className="eyebrow">A MEMORY FOR THE TWO OF YOU</span>
+          <button className="button" disabled={busy}>
+            {busy ? "Keeping your memory…" : "Add to our story ↗"}
           </button>
         </div>
       </form>
     </div>
-  )
+  );
 }

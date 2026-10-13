@@ -1,48 +1,54 @@
-import { createClient } from '@/lib/supabase/server'
-import { redirect, notFound } from 'next/navigation'
-import { markPostcardAsRead } from '@/app/actions/postcards'
-import Link from 'next/link'
+import { requireUser } from "@/lib/session";
+import { photoUrl } from "@/lib/photos";
+import { notFound } from "next/navigation";
+import { markPostcardAsRead } from "@/app/actions/postcards";
+import Link from "next/link";
 
 function formatDate(dateString: string) {
-  return new Date(dateString).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
+  return new Date(dateString).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 }
 
-export default async function PostcardPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+export default async function PostcardPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const { supabase, user } = await requireUser();
 
   const { data: postcard } = await supabase
-    .from('postcards')
-    .select(`
+    .from("postcards")
+    .select(
+      `
       id, image_url, caption, sent_at, read_at, from_id, to_id,
       from_profile:profiles!from_id(display_name, email)
-    `)
-    .eq('id', id)
-    .single()
+    `,
+    )
+    .eq("id", id)
+    .single();
 
-  if (!postcard) notFound()
+  if (!postcard) notFound();
 
-  const isRecipient = postcard.to_id === user.id
-  if (!isRecipient && postcard.from_id !== user.id) notFound()
+  const signedUrl = await photoUrl(supabase, postcard.image_url);
+  const isRecipient = postcard.to_id === user.id;
+  if (!isRecipient && postcard.from_id !== user.id) notFound();
 
   // Mark as read
   if (isRecipient && !postcard.read_at) {
-    await markPostcardAsRead(id)
+    await markPostcardAsRead(id);
   }
 
   const fromProfile = Array.isArray(postcard.from_profile)
     ? postcard.from_profile[0]
-    : postcard.from_profile
-  const isFromMe = postcard.from_id === user.id
+    : postcard.from_profile;
+  const isFromMe = postcard.from_id === user.id;
   const fromName = isFromMe
-    ? 'you'
-    : fromProfile?.display_name || fromProfile?.email?.split('@')[0] || '—'
+    ? "you"
+    : fromProfile?.display_name || fromProfile?.email?.split("@")[0] || "—";
 
   return (
     <div className="max-w-sm">
@@ -60,8 +66,8 @@ export default async function PostcardPage({ params }: { params: Promise<{ id: s
         <div className="overflow-hidden bg-paper-dark">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={postcard.image_url}
-            alt={postcard.caption || 'postcard'}
+            src={signedUrl}
+            alt={postcard.caption || "postcard"}
             className="w-full object-contain"
           />
         </div>
@@ -86,5 +92,5 @@ export default async function PostcardPage({ params }: { params: Promise<{ id: s
         )}
       </div>
     </div>
-  )
+  );
 }

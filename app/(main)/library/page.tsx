@@ -1,17 +1,21 @@
-export default function LibraryPage() {
+import { relationship } from "@/lib/relationship";
+import { Library } from "@/components/Library";
+export default async function LibraryPage() {
+  const { supabase, user, partnerName } = await relationship();
+  const [items, notes] = await Promise.all([
+    supabase
+      .from("library_items")
+      .select("*")
+      .order("created_at", { ascending: false }),
+    supabase.from("library_notes").select("*").order("created_at"),
+  ]);
+  if (items.error || notes.error) throw new Error("Library unavailable");
   return (
-    <div>
-      <h1 className="font-garamond text-3xl text-ink">Library</h1>
-      <p className="mt-2 font-garamond text-sm italic text-ink-faint">
-        Your reading ritual lives here. We will add progress, quotes, and notes next.
-      </p>
-
-      <div className="mt-8 rounded-lg border border-border bg-paper p-5">
-        <p className="font-garamond text-xs italic text-ink-faint">Current implementation status</p>
-        <p className="mt-2 font-garamond text-ink">
-          This tab is scaffolded for the mobile flow and information architecture. Data model + input flows are next.
-        </p>
-      </div>
-    </div>
-  )
+    <Library
+      partnerName={partnerName}
+      items={items.data || []}
+      notes={notes.data || []}
+      userId={user.id}
+    />
+  );
 }

@@ -1,54 +1,47 @@
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import { TimelineEntry } from '@/types/database'
-import Link from 'next/link'
-import TimelineClient from './TimelineClient'
-
-function entryDate(e: TimelineEntry): string {
-  return e.kind === 'moment' ? e.occurred_at : e.sent_at
-}
-
+import { requireUser } from "@/lib/session";
+import { photoUrl } from "@/lib/photos";
+import type { TimelineEntry } from "@/types/database";
+import Link from "next/link";
+import { PageHeading } from "@/components/PageHeading";
+import TimelineClient from "./TimelineClient";
 export default async function TimelinePage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const [{ data: letters }, { data: postcards }, { data: moments }] =
-    await Promise.all([
-      supabase
-        .from('letters')
-        .select('id, subject, body, sent_at, read_at, created_at, from_id, to_id, from_profile:profiles!from_id(display_name, email)')
-        .or(`from_id.eq.${user.id},to_id.eq.${user.id}`),
-      supabase
-        .from('postcards')
-        .select('id, image_url, caption, sent_at, read_at, created_at, from_id, to_id, from_profile:profiles!from_id(display_name, email)')
-        .or(`from_id.eq.${user.id},to_id.eq.${user.id}`),
-      supabase
-        .from('moments')
-        .select('id, title, note, occurred_at, created_at, created_by, creator_profile:profiles!created_by(display_name, email)'),
-    ])
-
-  const entries = ([
-    ...(letters || []).map(l => ({ kind: 'letter' as const, ...l })),
-    ...(postcards || []).map(p => ({ kind: 'postcard' as const, ...p })),
-    ...(moments || []).map(m => ({ kind: 'moment' as const, ...m })),
-  ] as unknown as TimelineEntry[]).sort(
-    (a, b) => new Date(entryDate(a)).getTime() - new Date(entryDate(b)).getTime()
-  )
-
+  const { supabase, user } = await requireUser();
+  const [letters, postcards, moments] = await Promise.all([
+    supabase.from("letters").select("*"),
+    supabase.from("postcards").select("*"),
+    supabase.from("moments").select("*"),
+  ]);
+  if (letters.error || postcards.error || moments.error)
+    throw new Error("Story unavailable");
+  const photos = await Promise.all(
+    (postcards.data || []).map(async (p) => ({
+      ...p,
+      image_url: await photoUrl(supabase, p.image_url),
+    })),
+  );
+  const entries = [
+    ...(letters.data || []).map((e) => ({ ...e, kind: "letter" })),
+    ...photos.map((e) => ({ ...e, kind: "postcard" })),
+    ...(moments.data || []).map((e) => ({ ...e, kind: "moment" })),
+  ] as TimelineEntry[];
   return (
-    <div>
-      <div className="flex items-baseline justify-between mb-12">
-        <h1 className="font-garamond text-2xl text-ink">Timeline</h1>
-        <Link
-          href="/timeline/add-moment"
-          className="font-garamond text-sm italic text-ink-muted hover:text-ink transition-colors duration-200"
-        >
-          + add moment
-        </Link>
-      </div>
-
+    <>
+      <PageHeading
+        number="02"
+        title="Our story, unfolding."
+        description="The big days. The ordinary ones. All the little things that became us."
+        action={
+          <div style={{ display: "flex", gap: 16 }}>
+            <Link className="button secondary" href="/postcards/send">
+              Add a photo ↗
+            </Link>
+            <Link className="button" href="/timeline/add-moment">
+              Keep a moment ↗
+            </Link>
+          </div>
+        }
+      />
       <TimelineClient entries={entries} userId={user.id} />
-    </div>
-  )
+    </>
+  );
 }
