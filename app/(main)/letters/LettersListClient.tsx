@@ -19,45 +19,70 @@ export type LetterItem = {
 export default function LettersListClient({
   letters,
   userId,
+  partnerName,
 }: {
   letters: LetterItem[];
   userId: string;
+  partnerName: string;
 }) {
   const [selected, setSelected] = useState<LetterItem | null>(null),
     [expanded, setExpanded] = useState(false),
     [query, setQuery] = useState(""),
-    [filter, setFilter] = useState("all");
+    [filter, setFilter] = useState("all"),
+    [order, setOrder] = useState("newest"),
+    [largeType, setLargeType] = useState(false),
+    [opened, setOpened] = useState<string[]>([]);
   const dialog = useRef<HTMLDialogElement>(null);
   const filtered = useMemo(
     () =>
-      letters.filter(
-        (l) =>
-          (filter === "all" ||
-            (filter === "received" && l.to_id === userId) ||
-            (filter === "sent" && l.from_id === userId)) &&
-          `${l.subject || ""} ${l.body}`
-            .toLowerCase()
-            .includes(query.toLowerCase()),
-      ),
-    [letters, query, filter, userId],
+      letters
+        .filter(
+          (l) =>
+            (filter === "all" ||
+              (filter === "received" && l.to_id === userId) ||
+              (filter === "unread" &&
+                l.to_id === userId &&
+                !l.read_at &&
+                !opened.includes(l.id)) ||
+              (filter === "sent" && l.from_id === userId)) &&
+            `${l.subject || ""} ${l.body}`
+              .toLowerCase()
+              .includes(query.toLowerCase()),
+        )
+        .sort((a, b) =>
+          order === "newest"
+            ? b.sent_at.localeCompare(a.sent_at)
+            : a.sent_at.localeCompare(b.sent_at),
+        ),
+    [letters, query, filter, userId, order, opened],
   );
   useEffect(() => {
     if (selected) {
       dialog.current?.showModal();
       if (selected.to_id === userId && !selected.read_at)
-        void markAsRead(selected.id).catch(() => {});
+        void markAsRead(selected.id)
+          .then(() =>
+            setOpened((ids) =>
+              ids.includes(selected.id) ? ids : [...ids, selected.id],
+            ),
+          )
+          .catch(() => {});
     } else dialog.current?.close();
   }, [selected, userId]);
   function close() {
     setSelected(null);
     setExpanded(false);
   }
+  const readingOrder = [...letters].sort((a, b) =>
+    a.sent_at.localeCompare(b.sent_at),
+  );
+  const readingIndex = readingOrder.findIndex((l) => l.id === selected?.id);
   return (
     <>
       <div className="archive-intro-strip">
         <div>
-          <span className="eyebrow">THE WORDS THAT MADE US</span>
-          <p>{letters.length} letters. A thousand ways to say it.</p>
+          <span className="eyebrow">THE CORRESPONDENCE</span>
+          <p>{letters.length} letters. Start anywhere. Stay a while.</p>
         </div>
         <button
           className="button secondary"
@@ -73,7 +98,8 @@ export default function LettersListClient({
         <div className="chips">
           {[
             ["all", "All letters"],
-            ["received", "For you"],
+            ["received", `From ${partnerName}`],
+            ["unread", "Unopened"],
             ["sent", "From you"],
           ].map(([v, l]) => (
             <button
@@ -91,6 +117,20 @@ export default function LettersListClient({
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Find a word, a moment…"
         />
+      </div>
+      <div className="reading-controls">
+        <p className="eyebrow" role="status">
+          {filtered.length} {filtered.length === 1 ? "LETTER" : "LETTERS"} IN
+          THIS VIEW
+        </p>
+        <select
+          aria-label="Letter order"
+          value={order}
+          onChange={(e) => setOrder(e.target.value)}
+        >
+          <option value="newest">Latest first</option>
+          <option value="oldest">From the first hello</option>
+        </select>
       </div>
       {!filtered.length && (
         <p className="empty-state">
@@ -113,11 +153,11 @@ export default function LettersListClient({
             <div className="archive-date">
               {dateLabel(l.sent_at)}
               <br />
-              {mine ? "FROM YOU" : profile?.display_name || "FOR YOU"}
+              {mine ? "FROM YOU" : profile?.display_name || partnerName}
             </div>
             <div>
               <p className="eyebrow">
-                {!mine && !l.read_at
+                {!mine && !l.read_at && !opened.includes(l.id)
                   ? "UNOPENED LETTER"
                   : "A PAGE IN OUR STORY"}
               </p>
@@ -175,7 +215,43 @@ export default function LettersListClient({
             </div>
           </div>
           <h2 id="reader-title">{selected?.subject || "A letter for you"}</h2>
-          <div className="letter-body">{selected?.body}</div>
+          <div className="reading-controls">
+            <span className="eyebrow">
+              LETTER {readingIndex + 1} OF {letters.length}
+            </span>
+            <button
+              className="text-link"
+              aria-pressed={largeType}
+              onClick={() => setLargeType(!largeType)}
+            >
+              Larger type Aa
+            </button>
+          </div>
+          <div className={`letter-body ${largeType ? "large-type" : ""}`}>
+            {selected?.body}
+          </div>
+          <div className="reading-controls reader-pagination">
+            <button
+              className="text-link"
+              disabled={readingIndex <= 0}
+              onClick={() => {
+                setSelected(readingOrder[readingIndex - 1]);
+                dialog.current?.scrollTo(0, 0);
+              }}
+            >
+              ← Previous letter
+            </button>
+            <button
+              className="text-link"
+              disabled={readingIndex >= readingOrder.length - 1}
+              onClick={() => {
+                setSelected(readingOrder[readingIndex + 1]);
+                dialog.current?.scrollTo(0, 0);
+              }}
+            >
+              Next letter →
+            </button>
+          </div>
           <Link
             href={"/letters/write"}
             onClick={close}

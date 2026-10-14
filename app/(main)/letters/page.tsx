@@ -15,15 +15,19 @@ export default async function LettersPage() {
     <>
       <PageHeading
         number="01"
-        title="In your own words."
-        description={`Your letters with ${partnerName}. Every word you have kept, together.`}
+        title="Dear you, and then some."
+        description={`The full correspondence with ${partnerName}. P.S.s included.`}
         action={
           <Link className="button" href="/letters/write">
             Write to {partnerName} ↗
           </Link>
         }
       />
-      <LettersListClient letters={data || []} userId={user.id} />
+      <LettersListClient
+        partnerName={partnerName}
+        letters={data || []}
+        userId={user.id}
+      />
     </>
   );
 }

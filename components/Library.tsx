@@ -40,30 +40,83 @@ export function Library({
     [kind, setKind] = useState("book"),
     [search, setSearch] = useState(""),
     [reading, setReading] = useState("all"),
-    [owner, setOwner] = useState("both");
+    [owner, setOwner] = useState("both"),
+    [discussion, setDiscussion] = useState(false),
+    [spotlight, setSpotlight] = useState<string | null>(null);
+  const sharedItems = items.filter((item) =>
+    notes.some((n) => n.item_id === item.id && !n.is_private),
+  );
+  function openItem(item: LibraryItem) {
+    setFilter("all");
+    setReading("all");
+    setOwner("both");
+    setDiscussion(false);
+    setSearch("");
+    setSpotlight(item.id);
+    requestAnimationFrame(() => {
+      document
+        .getElementById(`find-${item.id}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      const thread = document.getElementById(
+        `discussion-${item.id}`,
+      ) as HTMLDetailsElement | null;
+      if (thread) thread.open = true;
+    });
+  }
   const visible = items.filter(
     (x) =>
       (filter === "all" || x.kind === filter) &&
       (owner === "both" ||
         (owner === "mine" ? x.user_id === userId : x.user_id !== userId)) &&
       (reading === "all" || (x.kind === "book" && x.status === reading)) &&
-      `${x.title} ${x.author}`.toLowerCase().includes(search.toLowerCase()),
+      (!discussion || sharedItems.some((i) => i.id === x.id)) &&
+      `${x.title} ${x.author} ${notes
+        .filter((n) => n.item_id === x.id)
+        .map((n) => n.body)
+        .join(" ")}`
+        .toLowerCase()
+        .includes(search.toLowerCase()),
   );
   return (
     <>
       <PageHeading
         number="04"
-        title="The things we find."
-        description={`Your finds and ${partnerName}’s. Books, notes and conversations to come back to.`}
+        title="Read this. Then tell me."
+        description={`Books to finish, passages to keep, links to send ${partnerName} down a rabbit hole.`}
       />
+      <section className="conversation-shelf">
+        <div>
+          <p className="eyebrow">FOR OUR NEXT CONVERSATION</p>
+          <h2>
+            {sharedItems.length
+              ? `${sharedItems.length} ${sharedItems.length === 1 ? "thing" : "things"} still worth talking about.`
+              : "I have thoughts. You first."}
+          </h2>
+          <p>
+            Shared notes collect here. Private notes stay in your own margins.
+          </p>
+        </div>
+        <button
+          className="button secondary"
+          disabled={!sharedItems.length}
+          onClick={() => {
+            const next =
+              (sharedItems.findIndex((i) => i.id === spotlight) + 1) %
+              sharedItems.length;
+            openItem(sharedItems[next]);
+          }}
+        >
+          Pick something to discuss ↻
+        </button>
+      </section>
       {items.some((x) => x.kind === "book") && (
         <section className="bookshelf" aria-label="Our bookshelf">
           <div className="shelf-caption">
-            <span className="eyebrow">OUR COLLECTED WORLDS</span>
+            <span className="eyebrow">NOT FINISHED TALKING ABOUT IT</span>
             <h2>
-              Stay a little
+              Read it.
               <br />
-              <em>longer.</em>
+              <em>Compare notes.</em>
             </h2>
           </div>
           <div className="shelf-books">
@@ -73,14 +126,7 @@ export function Library({
                 <button
                   key={book.id}
                   className={`shelf-book cover-${i % 3}`}
-                  onClick={() => {
-                    setFilter("book");
-                    setReading("all");
-                    setSearch(book.title);
-                    document
-                      .getElementById("library-results")
-                      ?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }}
+                  onClick={() => openItem(book)}
                 >
                   <span>{book.author || "OUR LIBRARY"}</span>
                   <strong>{book.title}</strong>
@@ -110,7 +156,7 @@ export function Library({
           <div className="library-search">
             <input
               aria-label="Search library"
-              placeholder="Find a title or author…"
+              placeholder="Search titles, authors and your notes…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -145,14 +191,31 @@ export function Library({
               </button>
             ))}
           </div>
+          <div className="reading-controls">
+            <button
+              className="text-link"
+              aria-pressed={discussion}
+              onClick={() => setDiscussion(!discussion)}
+            >
+              {discussion ? "Show all finds" : "With shared discussion only"}
+            </button>
+            <span className="eyebrow" role="status">
+              {visible.length} FINDS
+            </span>
+          </div>
           {!visible.length && (
             <p className="empty-state">
-              Save a book, a video, or an article. Make a little room for what
-              moves you.
+              {items.length
+                ? "Nothing matches this view. Try another filter or search."
+                : "Save the book, video, or article you want to talk about."}
             </p>
           )}
           {visible.map((item) => (
-            <article className="library-item" key={item.id}>
+            <article
+              className={`library-item ${spotlight === item.id ? "find-spotlight" : ""}`}
+              id={`find-${item.id}`}
+              key={item.id}
+            >
               <div className="item-top">
                 <div className="book-spine" aria-hidden="true">
                   {item.kind === "book"
@@ -225,7 +288,7 @@ export function Library({
                   )}
                 </>
               )}
-              <details style={{ marginTop: 20 }}>
+              <details id={`discussion-${item.id}`} style={{ marginTop: 20 }}>
                 <summary className="text-link">
                   Notes & discussion (
                   {notes.filter((n) => n.item_id === item.id).length}) +
@@ -251,6 +314,7 @@ export function Library({
                     A quote, reflection, or something to discuss
                   </label>
                   <textarea
+                    placeholder="The bit I underlined. The part I disagree with. The question I want to ask you."
                     id={`note-${item.id}`}
                     name="body"
                     rows={3}

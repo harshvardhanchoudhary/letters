@@ -4,7 +4,13 @@ import { photoUrl } from "@/lib/photos";
 import { Home } from "@/components/Home";
 export default async function HomePage() {
   const { supabase, user } = await requireUser();
-  const [profiles, letters, mood, plans, books, photos, firstLetter] =
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Australia/Sydney",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  const [profiles, letters, mood, plans, books, photos, firstLetter, draft] =
     await Promise.all([
       supabase.from("profiles").select("*"),
       supabase
@@ -16,7 +22,7 @@ export default async function HomePage() {
         .limit(1),
       supabase
         .from("checkins")
-        .select("mood,need,phase")
+        .select("mood,need,phase,created_at")
         .neq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(1),
@@ -24,6 +30,7 @@ export default async function HomePage() {
         .from("plans")
         .select("title,planned_for")
         .eq("status", "planned")
+        .gte("planned_for", today)
         .order("planned_for")
         .limit(1),
       supabase
@@ -39,9 +46,14 @@ export default async function HomePage() {
         .order("sent_at", { ascending: false })
         .limit(1),
       supabase.from("letters").select("sent_at").order("sent_at").limit(1),
+      supabase
+        .from("letter_drafts")
+        .select("subject,updated_at")
+        .eq("user_id", user.id)
+        .maybeSingle(),
     ]);
   if (
-    [profiles, letters, mood, plans, books, photos, firstLetter].some(
+    [profiles, letters, mood, plans, books, photos, firstLetter, draft].some(
       (r) => r.error,
     )
   )
@@ -60,6 +72,8 @@ export default async function HomePage() {
         myName: displayName(me?.email, me?.display_name),
         partnerName: displayName(partner?.email, partner?.display_name),
         unread: letters.data?.[0] || null,
+        unreadCount: letters.count || 0,
+        draft: draft.data || null,
         letterCount: count || 0,
         firstLetterDate: firstLetter.data?.[0]?.sent_at || null,
         mood: mood.data?.[0] || null,

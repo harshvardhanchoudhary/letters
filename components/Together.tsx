@@ -5,6 +5,7 @@ import { PageHeading } from "./PageHeading";
 import { ActionForm } from "./ActionForm";
 import { addPlan, updatePlan } from "@/app/actions/journal";
 import { ideas } from "@/lib/ideas";
+import { calendarEvent } from "@/lib/journal-tools";
 import { dateLabel } from "@/lib/validation";
 export type Plan = {
   id: string;
@@ -35,23 +36,51 @@ export function Together({
         : "gentle",
     ),
     [date, setDate] = useState(""),
-    [ideaIndex, setIdeaIndex] = useState(0);
-  const suggestions = ideas.filter((i) => i.energy === energy);
+    [ideaIndex, setIdeaIndex] = useState(0),
+    [time, setTime] = useState("any"),
+    [setting, setSetting] = useState("any"),
+    [notice, setNotice] = useState("");
+  function chooseIdea(idea: { title: string; note: string }) {
+    setTitle(idea.title);
+    setNote(idea.note);
+    setNotice("Added to the form. Choose a day if you like, then save it.");
+    document.getElementById("plan-title")?.focus();
+  }
+  function downloadCalendar(plan: Plan) {
+    const blob = new Blob([calendarEvent(plan)], {
+      type: "text/calendar;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "letters-date.ics";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setNotice(
+      "Calendar file downloaded. Open it to add the date to your calendar.",
+    );
+  }
+  const suggestions = ideas.filter(
+    (i) =>
+      i.energy === energy &&
+      (time === "any" || i.minutes <= Number(time)) &&
+      (setting === "any" || i.setting === setting),
+  );
   const surprise = suggestions[ideaIndex % suggestions.length];
   return (
     <>
       <PageHeading
         number="05"
-        title="More days like this."
-        description={`Your next day with ${partnerName}. A shared calendar, your someday list, and ideas for the mood you’re in.`}
+        title="So, when are we going?"
+        description={`Make a date with ${partnerName}, or save the idea until you both have the energy.`}
       />
       <div className="date-lab">
         <div>
           <p className="eyebrow">THE DATE LAB / MADE FOR YOUR KIND OF DAY</p>
           <h2>
-            Less “what should we do?”
+            We should do that.
             <br />
-            <em>More doing it together.</em>
+            <em>Okay. When?</em>
           </h2>
           <div className="chips">
             {[
@@ -71,31 +100,88 @@ export function Together({
               </button>
             ))}
           </div>
-        </div>
-        <div className="surprise-idea" key={energy + ideaIndex}>
-          <span className="eyebrow">YOUR NEXT LITTLE ADVENTURE</span>
-          <h3>{surprise.title}</h3>
-          <p>{surprise.note}</p>
-          <div>
-            <button
-              className="button"
-              onClick={() => {
-                setTitle(surprise.title);
-                setNote(surprise.note);
-                document.getElementById("plan-title")?.focus();
-              }}
-            >
-              Let’s do this ↗
-            </button>
-            <button
-              className="text-link"
-              onClick={() => setIdeaIndex(ideaIndex + 1)}
-            >
-              Another idea ↻
-            </button>
+          <div className="idea-constraints">
+            <label>
+              How long?
+              <select
+                value={time}
+                onChange={(e) => {
+                  setTime(e.target.value);
+                  setIdeaIndex(0);
+                }}
+              >
+                <option value="any">No rush</option>
+                <option value="30">Half an hour</option>
+                <option value="60">An hour</option>
+              </select>
+            </label>
+            <label>
+              Where?
+              <select
+                value={setting}
+                onChange={(e) => {
+                  setSetting(e.target.value);
+                  setIdeaIndex(0);
+                }}
+              >
+                <option value="any">Anywhere</option>
+                <option value="home">Stay in</option>
+                <option value="out">Go out</option>
+              </select>
+            </label>
           </div>
         </div>
+        <div className="surprise-idea" key={energy + ideaIndex}>
+          {surprise ? (
+            <>
+              <span className="eyebrow">
+                {surprise.minutes} MINUTES OR SO /{" "}
+                {surprise.setting === "home" ? "STAYING IN" : "HEADING OUT"}
+              </span>
+              <h3>{surprise.title}</h3>
+              <p>{surprise.note}</p>
+              <div>
+                <button
+                  className="button"
+                  onClick={() => {
+                    chooseIdea(surprise);
+                  }}
+                >
+                  Let’s do this ↗
+                </button>
+                <button
+                  className="text-link"
+                  onClick={() => setIdeaIndex(ideaIndex + 1)}
+                >
+                  Another idea ↻
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h3>Nothing in this particular hat.</h3>
+              <p>
+                Try a longer window, another energy, or write your own idea
+                below.
+              </p>
+              <button
+                className="text-link"
+                onClick={() => {
+                  setTime("any");
+                  setSetting("any");
+                }}
+              >
+                Clear time & place filters
+              </button>
+            </>
+          )}
+        </div>
       </div>
+      {notice && (
+        <p role="status" className="status result-count">
+          {notice}
+        </p>
+      )}
       <div className="together-layout">
         <section>
           <PlanCalendar plans={plans} onChoose={setDate} />
@@ -127,6 +213,28 @@ export function Together({
                 </p>
                 <h3>{p.title}</h3>
                 <p>{p.note}</p>
+                <div className="plan-links">
+                  {p.planned_for && p.status !== "done" && (
+                    <button
+                      className="text-link"
+                      onClick={() => downloadCalendar(p)}
+                    >
+                      Add to my calendar ↓
+                    </button>
+                  )}
+                  {p.status === "done" && (
+                    <button
+                      className="text-link"
+                      onClick={() => {
+                        chooseIdea(p);
+                        setDate("");
+                        setEnergy(p.energy);
+                      }}
+                    >
+                      Do this again ↻
+                    </button>
+                  )}
+                </div>
                 {p.user_id === userId && (
                   <ActionForm action={updatePlan} className="inline-form">
                     <input type="hidden" name="id" value={p.id} />
@@ -150,13 +258,15 @@ export function Together({
                 )}
               </article>
             ))}
-          {!plans.length && (
+          {!plans.some((p) => filter === "all" || p.status === filter) && (
             <p className="empty-state">
-              Start with a little idea. You can choose the day later.
+              {plans.length
+                ? "No plans in this view yet."
+                : "Start with an idea. You can choose the day later."}
             </p>
           )}
           <div className="section-heading" style={{ marginTop: 45 }}>
-            <h2>A little inspiration</h2>
+            <h2>For when neither of us can decide</h2>
             <select
               aria-label="Ideas by energy"
               value={energy}
@@ -169,25 +279,21 @@ export function Together({
             </select>
           </div>
           <div className="idea-list">
-            {ideas
-              .filter((i) => i.energy === energy)
-              .map((i) => (
-                <button
-                  key={i.title}
-                  onClick={() => {
-                    setTitle(i.title);
-                    setNote(i.note);
-                    document.getElementById("plan-title")?.focus();
-                  }}
-                >
-                  {i.title} <span aria-hidden="true">↗</span>
-                  <small>{i.note}</small>
-                </button>
-              ))}
+            {suggestions.map((i) => (
+              <button
+                key={i.title}
+                onClick={() => {
+                  chooseIdea(i);
+                }}
+              >
+                {i.title} <span aria-hidden="true">↗</span>
+                <small>{i.note}</small>
+              </button>
+            ))}
           </div>
         </section>
         <aside className="aside-form">
-          <h2>Make a little plan</h2>
+          <h2>Put a day to it</h2>
           <ActionForm action={addPlan}>
             <div>
               <label htmlFor="plan-title">What shall we do?</label>

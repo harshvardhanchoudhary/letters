@@ -41,12 +41,7 @@ export default async function LetterPage({
   }
 
   const isFromMe = letter.from_id === user.id;
-  const fromProfile = Array.isArray(letter.from_profile)
-    ? letter.from_profile[0]
-    : letter.from_profile;
-  const fromName = isFromMe
-    ? "you"
-    : fromProfile?.display_name || fromProfile?.email?.split("@")[0] || "—";
+  const fromName = isFromMe ? "you" : partnerName;
 
   return (
     <div className="reading-page personal-letter">

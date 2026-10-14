@@ -13,18 +13,25 @@ export type HomeData = {
     sent_at: string;
   } | null;
   letterCount: number;
+  unreadCount: number;
+  draft: { subject: string; updated_at: string } | null;
   firstLetterDate: string | null;
-  mood: { mood: string; need: string; phase: string } | null;
+  mood: {
+    mood: string;
+    need: string;
+    phase: string;
+    created_at: string;
+  } | null;
   plan: { title: string; planned_for: string | null } | null;
   book: { title: string; progress: number } | null;
   photo: { url: string; caption: string | null } | null;
 };
 const prompts = [
-  "What’s a tiny thing I do that makes you feel loved?",
-  "Which ordinary day of ours would you live again?",
-  "What do you need more of from us this week?",
-  "What’s something you’ve read that changed how you see the world?",
-  "Where should our next little adventure take us?",
+  "What did you nearly tell me today, then save for later?",
+  "Which day would you like a few more hours of?",
+  "Do you want advice, company, or someone firmly on your side?",
+  "What have you read lately that you want to argue about with me?",
+  "Where should we go with absolutely no sensible reason?",
 ];
 export function Home({ data }: { data: HomeData }) {
   const [prompt, setPrompt] = useState(0);
@@ -36,7 +43,7 @@ export function Home({ data }: { data: HomeData }) {
           {dateLabel(new Date().toISOString())} / JUST THE TWO OF US
         </p>
         <span className="live-label">
-          <i /> Your shared space
+          <i /> Our correspondence
         </span>
       </div>
       <section className="our-world">
@@ -59,8 +66,8 @@ export function Home({ data }: { data: HomeData }) {
           </h1>
           <p>
             {data.firstLetterDate
-              ? `Writing our story since ${dateLabel(data.firstLetterDate)}.`
-              : "Your words. Your days. Your shared story."}
+              ? `Corresponding since ${dateLabel(data.firstLetterDate)}. Still finding things to say.`
+              : "The long version belongs here."}
           </p>
           <Link href={route("/letters/write")} className="button">
             Write to {data.partnerName} <span>↗</span>
@@ -68,7 +75,7 @@ export function Home({ data }: { data: HomeData }) {
         </div>
         <Link href={route("/timeline")} className="world-caption">
           <span>FROM OUR CAMERA ROLL</span>
-          {data.photo?.caption || "Start collecting your days together"} ↗
+          {data.photo?.caption || "A day we’ll want back"} ↗
         </Link>
         <div className="world-index">
           {data.firstLetterDate
@@ -80,22 +87,40 @@ export function Home({ data }: { data: HomeData }) {
       <div className="connection-strip">
         <Link href={route("/letters")}>
           <b>{data.letterCount.toString().padStart(2, "0")}</b>
-          <span>letters, kept forever ↗</span>
+          <span>letters to come back to ↗</span>
         </Link>
         <div>
           <span className="eyebrow">
-            TUNING INTO {data.partnerName.toUpperCase()}
+            TODAY, WITH {data.partnerName.toUpperCase()}
           </span>
           <p>
             {data.mood
               ? `${data.mood.mood} · ${data.mood.need || data.mood.phase || "A little check-in"}`
-              : "A little check-in can bring you closer."}
+              : "How’s today treating you? The honest version."}
           </p>
+          {data.mood && (
+            <small className="eyebrow">
+              LAST CHECK-IN · {dateLabel(data.mood.created_at)}
+            </small>
+          )}
         </div>
         <Link className="text-link" href={route("/mood")}>
           Check in together ↗
         </Link>
       </div>
+      {data.draft && (
+        <Link className="draft-bookmark" href="/letters/write">
+          <div>
+            <span className="eyebrow">WHERE YOU LEFT OFF · PRIVATE DRAFT</span>
+            <h2>
+              {data.draft.subject ||
+                `An unfinished letter to ${data.partnerName}`}
+            </h2>
+            <p>Last saved {dateLabel(data.draft.updated_at)}</p>
+          </div>
+          <span>Keep writing ↗</span>
+        </Link>
+      )}
       <div className="desk-layout">
         <section className="inbox-desk">
           <div className="section-heading">
@@ -108,6 +133,7 @@ export function Home({ data }: { data: HomeData }) {
           </div>
           <Link
             className="envelope"
+            prefetch={false}
             href={
               data.unread ? `/letters/${data.unread.id}` : route("/letters")
             }
@@ -116,18 +142,20 @@ export function Home({ data }: { data: HomeData }) {
               L<span>FOR TWO</span>
             </div>
             <p className="eyebrow">
-              {data.unread ? "WAITING TO BE OPENED" : "THE WORDS WE KEEP"}
+              {data.unread
+                ? `${data.unreadCount} ${data.unreadCount === 1 ? "LETTER" : "LETTERS"} WAITING FOR YOU`
+                : "THE WORDS WE KEEP"}
             </p>
-            <h3>{data.unread?.subject || "Some things deserve a letter."}</h3>
+            <h3>{data.unread?.subject || "And another thing…"}</h3>
             <p className="envelope-excerpt">
               {data.unread
                 ? `${data.unread.body.slice(0, 130)}…`
-                : "Your history is here. Revisit a familiar page, or write the next one."}
+                : "Back to the first hello, or straight to the latest tangent."}
             </p>
             <span className="wax-seal" aria-hidden="true">
               ✳
             </span>
-            <span className="envelope-open">Open slowly ↗</span>
+            <span className="envelope-open">Open the correspondence ↗</span>
           </Link>
         </section>
         <section className="conversation-deck">
@@ -153,11 +181,11 @@ export function Home({ data }: { data: HomeData }) {
       <div className="next-chapter">
         <div>
           <p className="eyebrow">SOMETHING TO LOOK FORWARD TO</p>
-          <h2>{data.plan?.title || "Let’s make a day of it."}</h2>
+          <h2>{data.plan?.title || "When do I get to see you?"}</h2>
           <p>
             {data.plan?.planned_for
               ? dateLabel(data.plan.planned_for + "T12:00:00Z")
-              : "Pick an idea that fits the way you both feel."}
+              : "Pick a day. The details can be a conversation."}
           </p>
           <Link className="button secondary" href={route("/together")}>
             Make a plan ↗
@@ -167,8 +195,8 @@ export function Home({ data }: { data: HomeData }) {
           <span className="eyebrow">ON THE NIGHTSTAND</span>
           <div className="mini-book">
             <span>OUR LIBRARY</span>
-            <h3>{data.book?.title || "The next thing that moves us."}</h3>
-            <i>notes in the margins</i>
+            <h3>{data.book?.title || "You need to read this."}</h3>
+            <i>and then we need to talk</i>
           </div>
           <span>
             {data.book

@@ -29,7 +29,11 @@ export function Checkin({
 }) {
   const [mood, setMood] = useState(""),
     [cycle, setCycle] = useState(""),
-    [energy, setEnergy] = useState("gentle");
+    [energy, setEnergy] = useState("gentle"),
+    [need, setNeed] = useState(""),
+    [shareCycle, setShareCycle] = useState(false),
+    [shareNote, setShareNote] = useState(false),
+    [person, setPerson] = useState("all");
   const care =
     energy === "gentle"
       ? {
@@ -49,8 +53,8 @@ export function Checkin({
     <>
       <PageHeading
         number="03"
-        title="How are you, really?"
-        description={`Let ${partnerName} know how today feels. Share only what you want to share.`}
+        title="How’s today treating you?"
+        description={`Tell ${partnerName} what would help today. Your private notes stay yours unless you choose to share them.`}
       />
       <div className="checkin-layout">
         <div className="form-panel">
@@ -112,9 +116,29 @@ export function Checkin({
             </div>
             <div>
               <label htmlFor="need">What I’d love from you</label>
+              <div className="chips need-chips">
+                {[
+                  "Just listen",
+                  "Help me think it through",
+                  "Something to eat",
+                  "A hug",
+                  "Some time to myself",
+                ].map((x) => (
+                  <button
+                    key={x}
+                    type="button"
+                    aria-pressed={need === x}
+                    onClick={() => setNeed(x)}
+                  >
+                    {x}
+                  </button>
+                ))}
+              </div>
               <input
                 id="need"
                 name="need"
+                value={need}
+                onChange={(e) => setNeed(e.target.value)}
                 placeholder="A little reassurance, a walk, some space…"
                 maxLength={500}
               />
@@ -141,7 +165,12 @@ export function Checkin({
                   ))}
                 </select>
                 <label className="check-row">
-                  <input type="checkbox" name="share_cycle" />
+                  <input
+                    type="checkbox"
+                    name="share_cycle"
+                    checked={shareCycle}
+                    onChange={(e) => setShareCycle(e.target.checked)}
+                  />
                   Share my cycle phase with {partnerName}
                 </label>
                 <p className="subtitle" style={{ fontSize: 14 }}>
@@ -159,9 +188,26 @@ export function Checkin({
                 placeholder="You can keep this just for yourself."
               />
               <label className="check-row">
-                <input type="checkbox" name="share_note" />
+                <input
+                  type="checkbox"
+                  name="share_note"
+                  checked={shareNote}
+                  onChange={(e) => setShareNote(e.target.checked)}
+                />
                 Share this reflection with {partnerName}
               </label>
+            </div>
+            <div className="sharing-summary" aria-live="polite">
+              <strong>What {partnerName} will see</strong>
+              <p>
+                Your mood, energy, season and what would help.
+                {shareCycle && cycle
+                  ? " Your chosen cycle phase is also shared."
+                  : " Your cycle entry stays private."}
+                {shareNote
+                  ? " Your reflection is also shared."
+                  : " Your reflection stays private."}
+              </p>
             </div>
             <div className="form-actions">
               <span className="eyebrow">A SMALL MOMENT OF HONESTY</span>
@@ -184,43 +230,89 @@ export function Checkin({
           <div className="section-heading">
             <h2>Recent check-ins</h2>
           </div>
+          <div className="chips need-chips">
+            <button
+              aria-pressed={person === "all"}
+              onClick={() => setPerson("all")}
+            >
+              Both of us
+            </button>
+            {Object.entries(names).map(([id, name]) => (
+              <button
+                key={id}
+                aria-pressed={person === id}
+                onClick={() => setPerson(id)}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+          <div className="energy-ribbon" aria-label="Recent check-in energy">
+            {entries
+              .filter((e) => person === "all" || e.user_id === person)
+              .slice(0, 7)
+              .reverse()
+              .map((e) => (
+                <a
+                  key={e.id}
+                  href={`#checkin-${e.id}`}
+                  className={`energy-mark energy-${["gentle", "steady", "adventurous"].includes(e.energy) ? e.energy : "steady"}`}
+                  aria-label={`${names[e.user_id] || "Member"}, ${dateLabel(e.created_at)}: ${e.mood}, ${e.energy}`}
+                >
+                  <span aria-hidden="true">
+                    {e.energy === "gentle"
+                      ? "◔"
+                      : e.energy === "adventurous"
+                        ? "✳"
+                        : "◑"}
+                  </span>
+                  <small>{names[e.user_id]}</small>
+                </a>
+              ))}
+          </div>
           {entries.length === 0 && (
             <p className="empty-state">
               Your first check-in can be as simple as one word.
             </p>
           )}
-          {entries.map((e) => {
-            const own = privateEntries.find((p) => p.id === e.id);
-            return (
-              <article className="side-note" key={e.id}>
-                <p className="eyebrow">
-                  {names[e.user_id] || "Your person"} ·{" "}
-                  {dateLabel(e.created_at)}
-                </p>
-                <h3>{e.mood}</h3>
-                <p>
-                  {e.energy}
-                  {e.phase && ` · ${e.phase}`}
-                </p>
-                {e.need && <p style={{ marginTop: 10 }}>“{e.need}”</p>}
-                {e.cycle_phase && (
-                  <p style={{ marginTop: 10 }}>
-                    Cycle: {e.cycle_phase} · shared
+          {entries
+            .filter((e) => person === "all" || e.user_id === person)
+            .map((e) => {
+              const own = privateEntries.find((p) => p.id === e.id);
+              return (
+                <article
+                  className="side-note"
+                  id={`checkin-${e.id}`}
+                  key={e.id}
+                >
+                  <p className="eyebrow">
+                    {names[e.user_id] || "Your person"} ·{" "}
+                    {dateLabel(e.created_at)}
                   </p>
-                )}
-                {e.note && <p style={{ marginTop: 10 }}>{e.note}</p>}
-                {own && (own.note || own.cycle_phase) && (
-                  <details>
-                    <summary className="text-link">
-                      Your private reflection
-                    </summary>
-                    {own.cycle_phase && <p>Cycle: {own.cycle_phase}</p>}
-                    <p>{own.note}</p>
-                  </details>
-                )}
-              </article>
-            );
-          })}
+                  <h3>{e.mood}</h3>
+                  <p>
+                    {e.energy}
+                    {e.phase && ` · ${e.phase}`}
+                  </p>
+                  {e.need && <p style={{ marginTop: 10 }}>“{e.need}”</p>}
+                  {e.cycle_phase && (
+                    <p style={{ marginTop: 10 }}>
+                      Cycle: {e.cycle_phase} · shared
+                    </p>
+                  )}
+                  {e.note && <p style={{ marginTop: 10 }}>{e.note}</p>}
+                  {own && (own.note || own.cycle_phase) && (
+                    <details>
+                      <summary className="text-link">
+                        Your private reflection
+                      </summary>
+                      {own.cycle_phase && <p>Cycle: {own.cycle_phase}</p>}
+                      <p>{own.note}</p>
+                    </details>
+                  )}
+                </article>
+              );
+            })}
         </aside>
       </div>
     </>

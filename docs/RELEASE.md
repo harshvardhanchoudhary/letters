@@ -1,13 +1,21 @@
 # Letters release guide
 
-## Current state — 13 October 2026
+## Current state — 14 October 2026
+
+Production release is READY at https://lettersforus.vercel.app. Canonical alias verified against deployment `dpl_B742hK71WFNgcuwj372AiN18gxFn` in project `prj_tNloDuBXRLHPDIoM6mxX6EgqFtNR`.
+
+Published GitHub commit: `c97130229310afdbd0f1d5e0cd1aa336d331d8a5` on `codex/relationship-relaunch`. The connected GitHub API published the source after terminal credentials failed. Its tree `47f10d18bd1e7bac960bf9d71c4724fd81237d7c` exactly matches local tested commit `9ca24ea1173daef29a6e0723d4890f264b75646a`; commit histories differ, so do not force-push local history. GitHub Actions run `38416477703` passed. Existing production branch settings have not been changed; future releases need explicit promotion or production deployment.
+
+Photo migration `letters_photo_member_access` is applied (eight policies); do not rerun it. The bucket is still public pending the user's manual dashboard change: Supabase → Storage → timeline-photos → bucket settings → Public off. Final read-only verification found 69 letters, 2 profiles, 1 postcard and 1 stored photo. Both users still need to verify login and original content on their own devices. Vercel build-log retrieval returned a connector scope 403; deployment READY and canonical alias were verified through their working endpoints.
+
+Rollback deployment: `dpl_CVYAd16ZSBoKFFW2uxKzYnv7ShnU`. Preserve the database on rollback; the old app may not show photos after the bucket becomes private.
 
 Working branch: `codex/relationship-relaunch` in `/Users/harshchoudhary/Documents/ChatGPT/Letters`.
 
 Production URL: https://lettersforus.vercel.app
 Supabase project: `djfegrqxxuzwdfllpwgs` (Letters).
 
-Read-only live audit: **69 letters, 2 profiles, 1 postcard, 0 moments**. The relaunch schema is applied. Original data fingerprints matched before and after. The photo bucket privacy cutover remains pending. The Vercel repository mapping, production branch and environment configuration must be confirmed in the dashboard before release.
+Read-only live audit: **69 letters, 2 profiles, 1 postcard, 0 moments**. The relaunch schema is applied. Original data fingerprints matched before and after. The photo bucket privacy cutover remains pending. The Vercel repository mapping and production environment were confirmed before this release.
 
 ## 1. Preserve the current state
 
@@ -77,7 +85,7 @@ These create real records when using the live project. Use meaningful entries; d
 
 The old site uses public photo URLs. The new app normalizes those old URLs and requests signed URLs, preserving the stored paths and original image.
 
-Apply `supabase/photo-access.sql` once. It limits reads to members, new uploads to each member's own folder, and cleanup to unreferenced uploads. It does not delete objects or change the bucket setting.
+`supabase/photo-access.sql` has been applied; do not rerun it. It limits reads to members, new uploads to each member's own folder, and cleanup to unreferenced uploads. It does not delete objects or change the bucket setting.
 
 When the new deployment is ready to serve production, open Supabase → Storage → `timeline-photos` → bucket settings and turn **Public** off. This is the deliberate privacy cutover. Public download URLs bypass read policies while the bucket remains public; policies alone are insufficient. Old public URLs will stop working after the private switch, so coordinate it with the new app's deployment.
 

@@ -28,8 +28,8 @@ export default async function TimelinePage() {
     <>
       <PageHeading
         number="02"
-        title="Our story, unfolding."
-        description="The big days. The ordinary ones. All the little things that became us."
+        title="Look where that hello went."
+        description="Letters, photographs, and days that deserve more than a camera-roll date."
         action={
           <div style={{ display: "flex", gap: 16 }}>
             <Link className="button secondary" href="/postcards/send">

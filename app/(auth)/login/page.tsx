@@ -18,21 +18,21 @@ function LoginForm() {
         <div className="login-art-lines" />
         <div>
           <h2>
-            A little more of us.
+            Azizah & Harsh.
             <br />
-            <em>One page at a time.</em>
+            <em>There’s always a P.S.</em>
           </h2>
-          <p className="eyebrow">LETTERS / MEMORIES / EVERYTHING IN BETWEEN</p>
+          <p className="eyebrow">THE LETTERS. THE TANGENTS. THE NEXT TIME.</p>
         </div>
       </section>
       <section className="login-form-side">
         <div className="login-form">
-          <p className="eyebrow">A PRIVATE JOURNAL FOR TWO</p>
-          <h1>{sent ? "Check your inbox." : "Welcome home."}</h1>
+          <p className="eyebrow">OUR ONGOING CORRESPONDENCE</p>
+          <h1>{sent ? "Check your inbox." : "Oh, hello you."}</h1>
           <p className="subtitle">
             {sent
               ? "Your sign-in link is on its way. Open it in this browser to return to your journal."
-              : "A place to write, remember, and keep discovering each other."}
+              : "For the long version, the afterthought, and the thing you meant to send."}
           </p>
           {!sent && (
             <form

@@ -23,7 +23,7 @@ test("login has no sample journal and fits the viewport", async ({ page }) => {
     0,
   );
   await expect(
-    page.getByRole("heading", { name: "Welcome home." }),
+    page.getByRole("heading", { name: "Oh, hello you." }),
   ).toBeVisible();
   expect(
     await page.evaluate(

@@ -20,7 +20,7 @@ export default async function MainLayout({
   ]);
   const names =
     profiles?.map((p) => displayName(p.email, p.display_name)).join(" & ") ||
-    "A space for two";
+    "Azizah & Harsh";
   return (
     <div className="journal-shell">
       <a className="skip-link" href="#main">
@@ -40,8 +40,8 @@ export default async function MainLayout({
         {children}
       </main>
       <footer className="journal-footer">
-        <span>FOR THE TWO OF YOU</span>
-        <span>A little more of us, every day.</span>
+        <span>AZIZAH & HARSH</span>
+        <span>P.S. There’s probably more.</span>
       </footer>
     </div>
   );
